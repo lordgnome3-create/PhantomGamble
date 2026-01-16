@@ -27,10 +27,8 @@ local chatmethods = {
 }
 local chatmethod = chatmethods[1];
 
-
 -- Create Main Frame in Lua
 local function CreateMainFrame()
-	-- Create main frame
 	local f = CreateFrame("Frame", "UltraGambling_Frame", UIParent)
 	f:SetWidth(300)
 	f:SetHeight(200)
@@ -59,8 +57,6 @@ local function CreateMainFrame()
 	editbox:SetFontObject(ChatFontNormal)
 	editbox:SetAutoFocus(false)
 	editbox:SetScript("OnEscapePressed", function() this:ClearFocus() end)
-	
-	-- Edit box backdrop
 	editbox:SetBackdrop({
 		bgFile = "Interface/ChatFrame/ChatFrameBackground",
 		edgeFile = "Interface/Common/Common-Input-Border",
@@ -127,21 +123,18 @@ local function CreateMinimapButton()
 	btn:EnableMouse(true)
 	btn:RegisterForDrag("LeftButton")
 	
-	-- Icon texture
 	local icon = btn:CreateTexture("UG_MinimapButton_Icon", "BACKGROUND")
 	icon:SetWidth(20)
 	icon:SetHeight(20)
 	icon:SetPoint("CENTER", 0, 1)
 	icon:SetTexture("Interface/Icons/INV_Misc_Coin_01")
 	
-	-- Border texture
 	local border = btn:CreateTexture("UG_MinimapButton_Border", "OVERLAY")
 	border:SetWidth(52)
 	border:SetHeight(52)
 	border:SetPoint("TOPLEFT")
 	border:SetTexture("Interface/Minimap/MiniMap-TrackingBorder")
 	
-	-- Highlight
 	local highlight = btn:CreateTexture(nil, "HIGHLIGHT")
 	highlight:SetTexture("Interface/Minimap/UI-Minimap-ZoomButton-Highlight")
 	highlight:SetBlendMode("ADD")
@@ -163,37 +156,6 @@ local function CreateMinimapButton()
 	
 	return btn
 end
-
--- LOAD FUNCTION --
-function UltraGambling_OnLoad()
-	DEFAULT_CHAT_FRAME:AddMessage("|cffffff00<UltraGamble for Turtle WoW> loaded /ug to use");
-
-	this:RegisterEvent("CHAT_MSG_RAID");
-	this:RegisterEvent("CHAT_MSG_PARTY");
-	this:RegisterEvent("CHAT_MSG_RAID_LEADER");
-	this:RegisterEvent("CHAT_MSG_GUILD");
-	this:RegisterEvent("CHAT_MSG_SYSTEM");
-	this:RegisterEvent("PLAYER_ENTERING_WORLD");
-	this:RegisterEvent("CHAT_MSG_WHISPER");
-	
-	UltraGambling_ROLL_Button:Disable();
-	UltraGambling_AcceptOnes_Button:Enable();
-	UltraGambling_LASTCALL_Button:Disable();
-	UltraGambling_CHAT_Button:Enable();
-end
-
--- Create and initialize event frame on load
-local EventFrame = CreateFrame("Frame", "UltraGambling_EventFrame")
-EventFrame:SetScript("OnEvent", UltraGambling_OnEvent)
-EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-EventFrame:RegisterEvent("CHAT_MSG_RAID")
-EventFrame:RegisterEvent("CHAT_MSG_PARTY")
-EventFrame:RegisterEvent("CHAT_MSG_RAID_LEADER")
-EventFrame:RegisterEvent("CHAT_MSG_GUILD")
-EventFrame:RegisterEvent("CHAT_MSG_SYSTEM")
-EventFrame:RegisterEvent("CHAT_MSG_WHISPER")
-
-DEFAULT_CHAT_FRAME:AddMessage("|cffffff00<UltraGamble for Turtle WoW> loaded /ug to use")
 
 local function Print(pre, red, text)
 	if red == "" then red = "/UG" end
@@ -344,12 +306,13 @@ local function OptionsFormatter(text, prefix)
 end
 
 function UltraGambling_OnEvent(event)
-
-	-- LOADS ALL DATA FOR INITIALIZATION OF ADDON --
 	if (event == "PLAYER_ENTERING_WORLD") then
-		-- Create the main frame if it doesn't exist
 		if not UltraGambling_Frame then
 			CreateMainFrame()
+		end
+		
+		if not UG_MinimapButton then
+			CreateMinimapButton()
 		end
 		
 		UltraGambling_EditBox:SetJustifyH("CENTER");
@@ -401,7 +364,6 @@ function UltraGambling_OnEvent(event)
 		end
 	end
 
-	-- Handle whisper commands
 	if (event == "CHAT_MSG_WHISPER") then
 		local msg, sender = arg1, arg2
 		if msg and string.lower(msg):find("!stats") then
@@ -409,7 +371,6 @@ function UltraGambling_OnEvent(event)
 		end
 	end
 
-	-- IF IT'S A RAID MESSAGE... --
 	if ((event == "CHAT_MSG_RAID_LEADER" or event == "CHAT_MSG_RAID") and AcceptOnes=="true" and UltraGambling["chat"] == 1) then
 		local msg, sender = arg1, arg2
 		UltraGambling_ParseChatMsg(msg, sender)
@@ -431,7 +392,6 @@ function UltraGambling_OnEvent(event)
 	end
 end
 
-
 function UltraGambling_ResetStats()
 	UltraGambling["stats"] = { };
 end
@@ -449,7 +409,7 @@ end
 function UltraGambling_OnClickCHAT()
 	if(UltraGambling["chat"] == nil) then UltraGambling["chat"] = 1; end
 
-	UltraGambling["chat"] = (UltraGambling["chat"] % getn(chatmethods)) + 1;
+	UltraGambling["chat"] = mod(UltraGambling["chat"], getn(chatmethods)) + 1;
 
 	chatmethod = chatmethods[UltraGambling["chat"]];
 	UltraGambling_CHAT_Button:SetText(chatmethod);
@@ -570,7 +530,6 @@ function UltraGambling_OnClickSTATS(full)
 	end
 end
 
-
 function UltraGambling_OnClickROLL()
 	if (totalrolls > 0 and AcceptRolls == "true") then
 		if getn(UltraGambling.strings) ~= 0 then
@@ -644,7 +603,6 @@ UG_Settings = {
 	MinimapPos = 75
 }
 
--- ** do not call from the mod's OnLoad, VARIABLES_LOADED or later is fine. **
 function UG_MinimapButton_Reposition()
 	UG_MinimapButton:SetPoint("TOPLEFT","Minimap","TOPLEFT",52-(80*cos(UG_Settings.MinimapPos)),(80*sin(UG_Settings.MinimapPos))-52)
 end
@@ -705,290 +663,4 @@ function UltraGambling_Tiebreaker()
 		UltraGambling_Report();
 	else
 		AcceptRolls = "false";
-		if getn(UltraGambling.lowtie) > 0 then
-			lowbreak = 1;
-			highbreak = 0;
-			tielow = theMax+1;
-			tiehigh = 0;
-			UltraGambling.strings = UltraGambling.lowtie;
-			UltraGambling.lowtie = {};
-			UltraGambling_OnClickROLL();
-		end
-		if getn(UltraGambling.hightie) > 0 and getn(UltraGambling.strings) == 0 then
-			lowbreak = 0;
-			highbreak = 1;
-			tielow = theMax+1;
-			tiehigh = 0;
-			UltraGambling.strings = UltraGambling.hightie;
-			UltraGambling.hightie = {};
-			UltraGambling_OnClickROLL();
-		end
-	end
-end
-
-function UltraGambling_ParseRoll(temp2)
-	local temp1 = strlower(temp2);
-
-	local player, junk, roll, range = strsplit(" ", temp1);
-
-	if junk == "rolls" and UltraGambling_Check(player)==1 then
-		local minRoll, maxRoll = strsplit("-",range);
-		minRoll = tonumber(strsub(minRoll,2));
-		maxRoll = tonumber(strsub(maxRoll,1,-2));
-		roll = tonumber(roll);
-		if (maxRoll == theMax and minRoll == 1) then
-			if (tie == 0) then
-				if (roll == high) then
-					if getn(UltraGambling.hightie) == 0 then
-						UltraGambling_AddTie(highname, UltraGambling.hightie);
-					end
-					UltraGambling_AddTie(player, UltraGambling.hightie);
-				end
-				if (roll>high) then
-					highname = player
-					highplayername = player
-					if (high == 0) then
-						high = roll
-						if (whispermethod) then
-							ChatMsg(string.format("You have the HIGHEST roll so far: %s and you might win a max of %sg", roll, (high - 1)),"WHISPER",nil,player);
-						end
-					else
-						high = roll
-						if (whispermethod) then
-							ChatMsg(string.format("You have the HIGHEST roll so far: %s and you might win %sg from %s", roll, (high - low), lowplayername),"WHISPER",nil,player);
-							ChatMsg(string.format("%s now has the HIGHEST roller so far: %s and you might owe him/her %sg", player, roll, (high - low)),"WHISPER",nil,lowplayername);
-						end
-					end
-					UltraGambling.hightie = {};
-				end
-				if (roll == low) then
-					if getn(UltraGambling.lowtie) == 0 then
-						UltraGambling_AddTie(lowname, UltraGambling.lowtie);
-					end
-					UltraGambling_AddTie(player, UltraGambling.lowtie);
-				end
-				if (roll<low) then
-					lowname = player
-					lowplayername = player
-					low = roll
-					if (high ~= low) then
-						if (whispermethod) then
-							ChatMsg(string.format("You have the LOWEST roll so far: %s and you might owe %s %sg ", roll, highplayername, (high - low)),"WHISPER",nil,player);
-						end
-					end
-					UltraGambling.lowtie = {};
-				end
-			else
-				if (lowbreak == 1) then
-					if (roll == tielow) then
-						if getn(UltraGambling.lowtie) == 0 then
-							UltraGambling_AddTie(lowname, UltraGambling.lowtie);
-						end
-						UltraGambling_AddTie(player, UltraGambling.lowtie);
-					end
-					if (roll<tielow) then
-						lowname = player
-						tielow = roll;
-						UltraGambling.lowtie = {};
-					end
-				end
-				if (highbreak == 1) then
-					if (roll == tiehigh) then
-						if getn(UltraGambling.hightie) == 0 then
-							UltraGambling_AddTie(highname, UltraGambling.hightie);
-						end
-						UltraGambling_AddTie(player, UltraGambling.hightie);
-					end
-					if (roll>tiehigh) then
-						highname = player
-						tiehigh = roll;
-						UltraGambling.hightie = {};
-					end
-				end
-			end
-			UltraGambling_Remove(tostring(player));
-			totalentries = totalentries + 1;
-
-			if getn(UltraGambling.strings) == 0 then
-				if tierolls == 0 then
-					UltraGambling_Report();
-				else
-					if totalentries == 2 then
-						UltraGambling_Report();
-					else
-						UltraGambling_Tiebreaker();
-					end
-				end
-			end
-		end
-	end
-end
-
-function UltraGambling_Check(player)
-	for i=1, getn(UltraGambling.strings) do
-		if strlower(UltraGambling.strings[i]) == tostring(player) then
-			return 1
-		end
-	end
-	return 0
-end
-
-function UltraGambling_List()
-	for i=1, getn(UltraGambling.strings) do
-		local string3 = strjoin(" ", "", strupper(strsub(tostring(UltraGambling.strings[i]),1,1))..strsub(tostring(UltraGambling.strings[i]),2),"still needs to roll.")
-		ChatMsg(string3);
-	end
-end
-
-function UltraGambling_ListBan()
-	local bancnt = 0;
-	Print("", "", "|cffffff00To ban do /ug ban (Name) or to unban /ug unban (Name) - The Current Bans:");
-	for i=1, getn(UltraGambling.bans) do
-		bancnt = 1;
-		DEFAULT_CHAT_FRAME:AddMessage(strjoin("|cffffff00", "...", tostring(UltraGambling.bans[i])));
-	end
-	if (bancnt == 0) then
-		DEFAULT_CHAT_FRAME:AddMessage("|cffffff00To ban do /ug ban (Name) or to unban /ug unban (Name).");
-	end
-end
-
-function UltraGambling_Add(name)
-	local insname = strlower(name);
-	if (insname ~= nil and insname ~= "") then
-		local found = 0;
-		for i=1, getn(UltraGambling.strings) do
-			if UltraGambling.strings[i] == insname then
-				found = 1;
-			end
-		end
-		if found == 0 then
-			table.insert(UltraGambling.strings, insname)
-			totalrolls = totalrolls+1
-		end
-	end
-end
-
-function UltraGambling_ChkBan(name)
-	local insname = strlower(name);
-	if (insname ~= nil and insname ~= "") then
-		for i=1, getn(UltraGambling.bans) do
-			if strlower(UltraGambling.bans[i]) == strlower(insname) then
-				return 1
-			end
-		end
-	end
-	return 0
-end
-
-function UltraGambling_AddBan(name)
-	local insname = strlower(name);
-	if (insname ~= nil and insname ~= "") then
-		local banexist = 0;
-		for i=1, getn(UltraGambling.bans) do
-			if UltraGambling.bans[i] == insname then
-				Print("", "", "|cffffff00Unable to add to ban list - user already banned.");
-				banexist = 1;
-			end
-		end
-		if (banexist == 0) then
-			table.insert(UltraGambling.bans, insname)
-			Print("", "", "|cffffff00User is now banned!");
-			local string3 = strjoin(" ", "", "User Banned from rolling! -> ",insname, "!")
-			DEFAULT_CHAT_FRAME:AddMessage(strjoin("|cffffff00", string3));
-		end
-	else
-		Print("", "", "|cffffff00Error: No name provided.");
-	end
-end
-
-function UltraGambling_RemoveBan(name)
-	local insname = strlower(name);
-	if (insname ~= nil and insname ~= "") then
-		for i=1, getn(UltraGambling.bans) do
-			if strlower(UltraGambling.bans[i]) == strlower(insname) then
-				table.remove(UltraGambling.bans, i)
-				Print("", "", "|cffffff00User removed from ban successfully.");
-				return;
-			end
-		end
-	else
-		Print("", "", "|cffffff00Error: No name provided.");
-	end
-end
-
-function UltraGambling_AddTie(name, tietable)
-	local insname = strlower(name);
-	if (insname ~= nil and insname ~= "") then
-		local found = 0;
-		for i=1, getn(tietable) do
-			if tietable[i] == insname then
-				found = 1;
-			end
-		end
-		if found == 0 then
-			table.insert(tietable, insname)
-			tierolls = tierolls+1
-			totalrolls = totalrolls+1
-		end
-	end
-end
-
-function UltraGambling_Remove(name)
-	local insname = strlower(name);
-	for i=1, getn(UltraGambling.strings) do
-		if UltraGambling.strings[i] ~= nil then
-			if strlower(UltraGambling.strings[i]) == strlower(insname) then
-				table.remove(UltraGambling.strings, i)
-				totalrolls = totalrolls - 1;
-			end
-		end
-	end
-end
-
-function UltraGambling_RemoveTie(name, tietable)
-	local insname = strlower(name);
-	for i=1, getn(tietable) do
-		if tietable[i] ~= nil then
-			if strlower(tietable[i]) == insname then
-				table.remove(tietable, i)
-			end
-		end
-	end
-end
-
-function UltraGambling_Reset()
-	UltraGambling["strings"] = { };
-	UltraGambling["lowtie"] = { };
-	UltraGambling["hightie"] = { };
-	AcceptOnes = "false"
-	AcceptRolls = "false"
-	totalrolls = 0
-	theMax = 0
-	tierolls = 0;
-	lowname = ""
-	highname = ""
-	low = theMax
-	high = 0
-	tie = 0
-	highbreak = 0;
-	lowbreak = 0;
-	tiehigh = 0;
-	tielow = 0;
-	totalentries = 0;
-	highplayername = "";
-	lowplayername = "";
-	UltraGambling_ROLL_Button:Disable();
-	UltraGambling_AcceptOnes_Button:Enable();
-	UltraGambling_LASTCALL_Button:Disable();
-	UltraGambling_CHAT_Button:Enable();
-	UltraGambling_AcceptOnes_Button:SetText("Open Entry");
-	Print("", "", "|cffffff00UltraGamble has now been reset");
-end
-
-function UltraGambling_ResetCmd()
-	ChatMsg(".:UltraGamble:. Game has been reset", chatmethod)
-end
-
-function UltraGambling_EditBox_OnLoad()
-	UltraGambling_EditBox:SetAutoFocus(false);
-end
+		if getn(UltraGambling.lowtie) > 0
