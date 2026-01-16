@@ -28,6 +28,95 @@ local chatmethods = {
 local chatmethod = chatmethods[1];
 
 
+-- Create Main Frame in Lua
+local function CreateMainFrame()
+	-- Create main frame
+	local f = CreateFrame("Frame", "UltraGambling_Frame", UIParent)
+	f:SetWidth(300)
+	f:SetHeight(200)
+	f:SetPoint("CENTER")
+	f:SetMovable(true)
+	f:EnableMouse(true)
+	f:SetBackdrop({
+		bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+		edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+		tile = true, tileSize = 32, edgeSize = 32,
+		insets = { left = 11, right = 12, top = 12, bottom = 11 }
+	})
+	f:SetScript("OnMouseDown", function() this:StartMoving() end)
+	f:SetScript("OnMouseUp", function() this:StopMovingOrSizing() end)
+	
+	-- Title
+	local title = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	title:SetPoint("TOP", 0, -15)
+	title:SetText("UltraGamble")
+	
+	-- Edit Box
+	local editbox = CreateFrame("EditBox", "UltraGambling_EditBox", f)
+	editbox:SetWidth(100)
+	editbox:SetHeight(32)
+	editbox:SetPoint("TOP", 0, -40)
+	editbox:SetFontObject(ChatFontNormal)
+	editbox:SetAutoFocus(false)
+	editbox:SetScript("OnEscapePressed", function() this:ClearFocus() end)
+	
+	-- Edit box backdrop
+	editbox:SetBackdrop({
+		bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+		edgeFile = "Interface\\Common\\Common-Input-Border",
+		tile = true, edgeSize = 8, tileSize = 32,
+		insets = { left = 0, right = 0, top = 0, bottom = 0 }
+	})
+	editbox:SetBackdropColor(0, 0, 0, 0.5)
+	
+	-- Open Entry Button
+	local acceptBtn = CreateFrame("Button", "UltraGambling_AcceptOnes_Button", f, "GameMenuButtonTemplate")
+	acceptBtn:SetWidth(120)
+	acceptBtn:SetHeight(25)
+	acceptBtn:SetPoint("TOP", 0, -80)
+	acceptBtn:SetText("Open Entry")
+	acceptBtn:SetScript("OnClick", UltraGambling_OnClickACCEPTONES)
+	
+	-- Last Call Button
+	local lastcallBtn = CreateFrame("Button", "UltraGambling_LASTCALL_Button", f, "GameMenuButtonTemplate")
+	lastcallBtn:SetWidth(120)
+	lastcallBtn:SetHeight(25)
+	lastcallBtn:SetPoint("TOP", acceptBtn, "BOTTOM", 0, -5)
+	lastcallBtn:SetText("Last Call")
+	lastcallBtn:SetScript("OnClick", UltraGambling_OnClickLASTCALL)
+	
+	-- Roll Button
+	local rollBtn = CreateFrame("Button", "UltraGambling_ROLL_Button", f, "GameMenuButtonTemplate")
+	rollBtn:SetWidth(120)
+	rollBtn:SetHeight(25)
+	rollBtn:SetPoint("TOP", lastcallBtn, "BOTTOM", 0, -5)
+	rollBtn:SetText("Roll")
+	rollBtn:SetScript("OnClick", UltraGambling_OnClickROLL)
+	
+	-- Chat Method Button
+	local chatBtn = CreateFrame("Button", "UltraGambling_CHAT_Button", f, "GameMenuButtonTemplate")
+	chatBtn:SetWidth(80)
+	chatBtn:SetHeight(20)
+	chatBtn:SetPoint("BOTTOMLEFT", 20, 15)
+	chatBtn:SetText("RAID")
+	chatBtn:SetScript("OnClick", UltraGambling_OnClickCHAT)
+	
+	-- Whisper Button
+	local whisperBtn = CreateFrame("Button", "UltraGambling_WHISPER_Button", f, "GameMenuButtonTemplate")
+	whisperBtn:SetWidth(100)
+	whisperBtn:SetHeight(20)
+	whisperBtn:SetPoint("BOTTOMRIGHT", -20, 15)
+	whisperBtn:SetText("(No Whispers)")
+	whisperBtn:SetScript("OnClick", UltraGambling_OnClickWHISPERS)
+	
+	-- Close Button
+	local closeBtn = CreateFrame("Button", "UltraGambling_CloseButton", f, "UIPanelCloseButton")
+	closeBtn:SetPoint("TOPRIGHT", -5, -5)
+	closeBtn:SetScript("OnClick", hide_from_xml)
+	
+	return f
+end
+
 -- LOAD FUNCTION --
 function UltraGambling_OnLoad()
 	DEFAULT_CHAT_FRAME:AddMessage("|cffffff00<UltraGamble for Turtle WoW> loaded /ug to use");
@@ -40,6 +129,11 @@ function UltraGambling_OnLoad()
 	this:RegisterEvent("PLAYER_ENTERING_WORLD");
 	this:RegisterEvent("CHAT_MSG_WHISPER");
 
+	-- Create the main frame if it doesn't exist
+	if not UltraGambling_Frame then
+		CreateMainFrame()
+	end
+	
 	UltraGambling_ROLL_Button:Disable();
 	UltraGambling_AcceptOnes_Button:Enable();
 	UltraGambling_LASTCALL_Button:Disable();
