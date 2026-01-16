@@ -117,6 +117,53 @@ local function CreateMainFrame()
 	return f
 end
 
+-- Create Minimap Button
+local function CreateMinimapButton()
+	local btn = CreateFrame("Button", "UG_MinimapButton", Minimap)
+	btn:SetWidth(32)
+	btn:SetHeight(32)
+	btn:SetPoint("TOPLEFT")
+	btn:SetMovable(true)
+	btn:EnableMouse(true)
+	btn:RegisterForDrag("LeftButton")
+	
+	-- Icon texture
+	local icon = btn:CreateTexture("UG_MinimapButton_Icon", "BACKGROUND")
+	icon:SetWidth(20)
+	icon:SetHeight(20)
+	icon:SetPoint("CENTER", 0, 1)
+	icon:SetTexture("Interface\\Icons\\INV_Misc_Coin_01")
+	
+	-- Border texture
+	local border = btn:CreateTexture("UG_MinimapButton_Border", "OVERLAY")
+	border:SetWidth(52)
+	border:SetHeight(52)
+	border:SetPoint("TOPLEFT")
+	border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+	
+	-- Highlight
+	local highlight = btn:CreateTexture(nil, "HIGHLIGHT")
+	highlight:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+	highlight:SetBlendMode("ADD")
+	highlight:SetAllPoints()
+	
+	btn:SetScript("OnClick", UG_MinimapButton_OnClick)
+	btn:SetScript("OnDragStart", function() this:StartMoving() end)
+	btn:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
+	btn:SetScript("OnEnter", function()
+		GameTooltip:SetOwner(this, "ANCHOR_LEFT")
+		GameTooltip:SetText("UltraGamble")
+		GameTooltip:AddLine("Click to toggle window", 1, 1, 1)
+		GameTooltip:AddLine("Drag to move", 1, 1, 1)
+		GameTooltip:Show()
+	end)
+	btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	
+	UG_MinimapButton_Reposition()
+	
+	return btn
+end
+
 -- LOAD FUNCTION --
 function UltraGambling_OnLoad()
 	DEFAULT_CHAT_FRAME:AddMessage("|cffffff00<UltraGamble for Turtle WoW> loaded /ug to use");
@@ -292,6 +339,11 @@ function UltraGambling_OnEvent(event)
 
 	-- LOADS ALL DATA FOR INITIALIZATION OF ADDON --
 	if (event == "PLAYER_ENTERING_WORLD") then
+		-- Create the main frame if it doesn't exist
+		if not UltraGambling_Frame then
+			CreateMainFrame()
+		end
+		
 		UltraGambling_EditBox:SetJustifyH("CENTER");
 
 		if(not UltraGambling) then
