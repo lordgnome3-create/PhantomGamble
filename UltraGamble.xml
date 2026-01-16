@@ -2,7 +2,19 @@
 
 	<Script file="UltraGamble.lua"/>
 
-	<!-- Main Frame -->
+	<!-- Event Handler Frame -->
+	<Frame name="UltraGambling_EventFrame" hidden="true">
+		<Scripts>
+			<OnLoad>
+				UltraGambling_OnLoad();
+			</OnLoad>
+			<OnEvent>
+				UltraGambling_OnEvent(event);
+			</OnEvent>
+		</Scripts>
+	</Frame>
+
+</Ui>
 	<Frame name="UltraGambling_Frame" toplevel="true" movable="true" enableMouse="true" hidden="false" parent="UIParent">
 		<Size>
 			<AbsDimension x="300" y="200"/>
