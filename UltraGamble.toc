@@ -4,7 +4,5 @@
 ## Author: Your Name
 ## Version: 1.0.0
 ## SavedVariables: UltraGambling, UG_Settings
-## OptionalDeps:
-## Dependencies:
 
-UltraGamble.xml
+UltraGamble.lua
