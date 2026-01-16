@@ -175,17 +175,25 @@ function UltraGambling_OnLoad()
 	this:RegisterEvent("CHAT_MSG_SYSTEM");
 	this:RegisterEvent("PLAYER_ENTERING_WORLD");
 	this:RegisterEvent("CHAT_MSG_WHISPER");
-
-	-- Create the main frame if it doesn't exist
-	if not UltraGambling_Frame then
-		CreateMainFrame()
-	end
 	
 	UltraGambling_ROLL_Button:Disable();
 	UltraGambling_AcceptOnes_Button:Enable();
 	UltraGambling_LASTCALL_Button:Disable();
 	UltraGambling_CHAT_Button:Enable();
 end
+
+-- Create and initialize event frame on load
+local EventFrame = CreateFrame("Frame", "UltraGambling_EventFrame")
+EventFrame:SetScript("OnEvent", UltraGambling_OnEvent)
+EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+EventFrame:RegisterEvent("CHAT_MSG_RAID")
+EventFrame:RegisterEvent("CHAT_MSG_PARTY")
+EventFrame:RegisterEvent("CHAT_MSG_RAID_LEADER")
+EventFrame:RegisterEvent("CHAT_MSG_GUILD")
+EventFrame:RegisterEvent("CHAT_MSG_SYSTEM")
+EventFrame:RegisterEvent("CHAT_MSG_WHISPER")
+
+DEFAULT_CHAT_FRAME:AddMessage("|cffffff00<UltraGamble for Turtle WoW> loaded /ug to use")
 
 local function Print(pre, red, text)
 	if red == "" then red = "/UG" end
