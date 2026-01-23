@@ -5,4 +5,4 @@
 ## Version: 1.0
 ## SavedVariables: PhantomGamble, PG_Settings
 
-PhantomGamble.xml
+PhantomGamble.lua
