@@ -1,8 +1,8 @@
 ## Interface: 11200
-## Title: UltraGamble
-## Notes: A gambling addon for organizing rolls in raid, guild, or party chat
-## Author: Your Name
-## Version: 1.0.0
-## SavedVariables: UltraGambling, UG_Settings
+## Title: PhantomGamble
+## Notes: A gambling addon for organizing roll-based gold games
+## Author: 
+## Version: 1.0
+## SavedVariables: PhantomGamble, PG_Settings
 
-UltraGamble.lua
+PhantomGamble.xml
