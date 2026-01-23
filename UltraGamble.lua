@@ -32,15 +32,72 @@ local function CreateMainFrame()
 	local f = CreateFrame("Frame", "UltraGambling_Frame", UIParent)
 	f:SetWidth(300)
 	f:SetHeight(200)
-	f:SetPoint("CENTER")
+	f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 	f:SetMovable(true)
 	f:EnableMouse(true)
-	f:SetBackdrop({
-		bgFile = "Interface/DialogFrame/UI-DialogBox-Background",
-		edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
-		tile = true, tileSize = 32, edgeSize = 32,
-		insets = { left = 11, right = 12, top = 12, bottom = 11 }
-	})
+	f:SetFrameStrata("DIALOG")
+	
+	-- Create backdrop textures manually for 1.12 compatibility
+	local bg = f:CreateTexture(nil, "BACKGROUND")
+	bg:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Background")
+	bg:SetPoint("TOPLEFT", 11, -12)
+	bg:SetPoint("BOTTOMRIGHT", -12, 11)
+	
+	local topLeft = f:CreateTexture(nil, "BORDER")
+	topLeft:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Corner")
+	topLeft:SetWidth(32)
+	topLeft:SetHeight(32)
+	topLeft:SetPoint("TOPLEFT")
+	
+	local topRight = f:CreateTexture(nil, "BORDER")
+	topRight:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Corner")
+	topRight:SetTexCoord(1, 0, 0, 1)
+	topRight:SetWidth(32)
+	topRight:SetHeight(32)
+	topRight:SetPoint("TOPRIGHT")
+	
+	local bottomLeft = f:CreateTexture(nil, "BORDER")
+	bottomLeft:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Corner")
+	bottomLeft:SetTexCoord(0, 1, 1, 0)
+	bottomLeft:SetWidth(32)
+	bottomLeft:SetHeight(32)
+	bottomLeft:SetPoint("BOTTOMLEFT")
+	
+	local bottomRight = f:CreateTexture(nil, "BORDER")
+	bottomRight:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Corner")
+	bottomRight:SetTexCoord(1, 0, 1, 0)
+	bottomRight:SetWidth(32)
+	bottomRight:SetHeight(32)
+	bottomRight:SetPoint("BOTTOMRIGHT")
+	
+	local top = f:CreateTexture(nil, "BORDER")
+	top:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Border")
+	top:SetTexCoord(0.25, 0.75, 0, 1)
+	top:SetPoint("TOPLEFT", topLeft, "TOPRIGHT")
+	top:SetPoint("TOPRIGHT", topRight, "TOPLEFT")
+	top:SetHeight(32)
+	
+	local bottom = f:CreateTexture(nil, "BORDER")
+	bottom:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Border")
+	bottom:SetTexCoord(0.25, 0.75, 1, 0)
+	bottom:SetPoint("BOTTOMLEFT", bottomLeft, "BOTTOMRIGHT")
+	bottom:SetPoint("BOTTOMRIGHT", bottomRight, "BOTTOMLEFT")
+	bottom:SetHeight(32)
+	
+	local left = f:CreateTexture(nil, "BORDER")
+	left:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Border")
+	left:SetTexCoord(0.75, 1, 0, 1)
+	left:SetPoint("TOPLEFT", topLeft, "BOTTOMLEFT")
+	left:SetPoint("BOTTOMLEFT", bottomLeft, "TOPLEFT")
+	left:SetWidth(32)
+	
+	local right = f:CreateTexture(nil, "BORDER")
+	right:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Border")
+	right:SetTexCoord(0, 0.25, 0, 1)
+	right:SetPoint("TOPRIGHT", topRight, "BOTTOMRIGHT")
+	right:SetPoint("BOTTOMRIGHT", bottomRight, "TOPRIGHT")
+	right:SetWidth(32)
+	
 	f:SetScript("OnMouseDown", function() this:StartMoving() end)
 	f:SetScript("OnMouseUp", function() this:StopMovingOrSizing() end)
 	
@@ -57,13 +114,11 @@ local function CreateMainFrame()
 	editbox:SetFontObject(ChatFontNormal)
 	editbox:SetAutoFocus(false)
 	editbox:SetScript("OnEscapePressed", function() this:ClearFocus() end)
-	editbox:SetBackdrop({
-		bgFile = "Interface/ChatFrame/ChatFrameBackground",
-		edgeFile = "Interface/Common/Common-Input-Border",
-		tile = true, edgeSize = 8, tileSize = 32,
-		insets = { left = 0, right = 0, top = 0, bottom = 0 }
-	})
-	editbox:SetBackdropColor(0, 0, 0, 0.5)
+	
+	-- EditBox background
+	local editBg = editbox:CreateTexture(nil, "BACKGROUND")
+	editBg:SetTexture(0, 0, 0, 0.5)
+	editBg:SetAllPoints(editbox)
 	
 	-- Open Entry Button
 	local acceptBtn = CreateFrame("Button", "UltraGambling_AcceptOnes_Button", f, "GameMenuButtonTemplate")
