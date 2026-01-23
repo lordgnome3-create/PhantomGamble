@@ -1,21 +1,20 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/">
 
-	<Script file="UltraGamble.lua"/>
+	<Script file="PhantomGamble.lua"/>
 
 	<!-- Event Handler Frame -->
-	<Frame name="UltraGambling_EventFrame" hidden="true">
+	<Frame name="PhantomGamble_EventFrame" hidden="true">
 		<Scripts>
 			<OnLoad>
-				UltraGambling_OnLoad();
+				PhantomGamble_OnLoad();
 			</OnLoad>
 			<OnEvent>
-				UltraGambling_OnEvent(event);
+				PhantomGamble_OnEvent(event);
 			</OnEvent>
 		</Scripts>
 	</Frame>
 
-</Ui>
-	<Frame name="UltraGambling_Frame" toplevel="true" movable="true" enableMouse="true" hidden="false" parent="UIParent">
+	<Frame name="PhantomGamble_Frame" toplevel="true" movable="true" enableMouse="true" hidden="false" parent="UIParent">
 		<Size>
 			<AbsDimension x="300" y="200"/>
 		</Size>
@@ -35,7 +34,7 @@
 		</Backdrop>
 		<Layers>
 			<Layer level="ARTWORK">
-				<FontString name="UltraGambling_Title" inherits="GameFontNormal" text="UltraGamble">
+				<FontString name="PhantomGamble_Title" inherits="GameFontNormal" text="PhantomGamble">
 					<Anchors>
 						<Anchor point="TOP">
 							<Offset>
@@ -48,7 +47,7 @@
 		</Layers>
 		<Frames>
 			<!-- Edit Box for Roll Number -->
-			<EditBox name="UltraGambling_EditBox" letters="5" autoFocus="false">
+			<EditBox name="PhantomGamble_EditBox" letters="5" autoFocus="false">
 				<Size>
 					<AbsDimension x="100" y="32"/>
 				</Size>
@@ -61,7 +60,7 @@
 				</Anchors>
 				<Layers>
 					<Layer level="BACKGROUND">
-						<Texture name="UltraGambling_EditBox_Left" file="Interface\Common\Common-Input-Border">
+						<Texture name="PhantomGamble_EditBox_Left" file="Interface\Common\Common-Input-Border">
 							<Size>
 								<AbsDimension x="8" y="32"/>
 							</Size>
@@ -74,7 +73,7 @@
 							</Anchors>
 							<TexCoords left="0" right="0.0625" top="0" bottom="1.0"/>
 						</Texture>
-						<Texture name="UltraGambling_EditBox_Right" file="Interface\Common\Common-Input-Border">
+						<Texture name="PhantomGamble_EditBox_Right" file="Interface\Common\Common-Input-Border">
 							<Size>
 								<AbsDimension x="8" y="32"/>
 							</Size>
@@ -87,10 +86,10 @@
 							</Anchors>
 							<TexCoords left="0.9375" right="1.0" top="0" bottom="1.0"/>
 						</Texture>
-						<Texture name="UltraGambling_EditBox_Middle" file="Interface\Common\Common-Input-Border">
+						<Texture name="PhantomGamble_EditBox_Middle" file="Interface\Common\Common-Input-Border">
 							<Anchors>
-								<Anchor point="LEFT" relativeTo="UltraGambling_EditBox_Left" relativePoint="RIGHT"/>
-								<Anchor point="RIGHT" relativeTo="UltraGambling_EditBox_Right" relativePoint="LEFT"/>
+								<Anchor point="LEFT" relativeTo="PhantomGamble_EditBox_Left" relativePoint="RIGHT"/>
+								<Anchor point="RIGHT" relativeTo="PhantomGamble_EditBox_Right" relativePoint="LEFT"/>
 							</Anchors>
 							<TexCoords left="0.0625" right="0.9375" top="0" bottom="1.0"/>
 						</Texture>
@@ -99,7 +98,7 @@
 				<FontString inherits="ChatFontNormal"/>
 				<Scripts>
 					<OnLoad>
-						UltraGambling_EditBox_OnLoad();
+						PhantomGamble_EditBox_OnLoad();
 					</OnLoad>
 					<OnEscapePressed>
 						this:ClearFocus();
@@ -108,7 +107,7 @@
 			</EditBox>
 
 			<!-- Open Entry / Accept Ones Button -->
-			<Button name="UltraGambling_AcceptOnes_Button" inherits="GameMenuButtonTemplate" text="Open Entry">
+			<Button name="PhantomGamble_AcceptOnes_Button" inherits="GameMenuButtonTemplate" text="Open Entry">
 				<Size>
 					<AbsDimension x="120" y="25"/>
 				</Size>
@@ -121,18 +120,18 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						UltraGambling_OnClickACCEPTONES();
+						PhantomGamble_OnClickACCEPTONES();
 					</OnClick>
 				</Scripts>
 			</Button>
 
 			<!-- Last Call Button -->
-			<Button name="UltraGambling_LASTCALL_Button" inherits="GameMenuButtonTemplate" text="Last Call">
+			<Button name="PhantomGamble_LASTCALL_Button" inherits="GameMenuButtonTemplate" text="Last Call">
 				<Size>
 					<AbsDimension x="120" y="25"/>
 				</Size>
 				<Anchors>
-					<Anchor point="TOP" relativeTo="UltraGambling_AcceptOnes_Button" relativePoint="BOTTOM">
+					<Anchor point="TOP" relativeTo="PhantomGamble_AcceptOnes_Button" relativePoint="BOTTOM">
 						<Offset>
 							<AbsDimension x="0" y="-5"/>
 						</Offset>
@@ -140,18 +139,18 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						UltraGambling_OnClickLASTCALL();
+						PhantomGamble_OnClickLASTCALL();
 					</OnClick>
 				</Scripts>
 			</Button>
 
 			<!-- Roll Button -->
-			<Button name="UltraGambling_ROLL_Button" inherits="GameMenuButtonTemplate" text="Roll">
+			<Button name="PhantomGamble_ROLL_Button" inherits="GameMenuButtonTemplate" text="Roll">
 				<Size>
 					<AbsDimension x="120" y="25"/>
 				</Size>
 				<Anchors>
-					<Anchor point="TOP" relativeTo="UltraGambling_LASTCALL_Button" relativePoint="BOTTOM">
+					<Anchor point="TOP" relativeTo="PhantomGamble_LASTCALL_Button" relativePoint="BOTTOM">
 						<Offset>
 							<AbsDimension x="0" y="-5"/>
 						</Offset>
@@ -159,13 +158,13 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						UltraGambling_OnClickROLL();
+						PhantomGamble_OnClickROLL();
 					</OnClick>
 				</Scripts>
 			</Button>
 
 			<!-- Chat Method Button -->
-			<Button name="UltraGambling_CHAT_Button" inherits="GameMenuButtonTemplate" text="RAID">
+			<Button name="PhantomGamble_CHAT_Button" inherits="GameMenuButtonTemplate" text="RAID">
 				<Size>
 					<AbsDimension x="80" y="20"/>
 				</Size>
@@ -178,13 +177,13 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						UltraGambling_OnClickCHAT();
+						PhantomGamble_OnClickCHAT();
 					</OnClick>
 				</Scripts>
 			</Button>
 
 			<!-- Whisper Button -->
-			<Button name="UltraGambling_WHISPER_Button" inherits="GameMenuButtonTemplate" text="(No Whispers)">
+			<Button name="PhantomGamble_WHISPER_Button" inherits="GameMenuButtonTemplate" text="(No Whispers)">
 				<Size>
 					<AbsDimension x="100" y="20"/>
 				</Size>
@@ -197,13 +196,13 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						UltraGambling_OnClickWHISPERS();
+						PhantomGamble_OnClickWHISPERS();
 					</OnClick>
 				</Scripts>
 			</Button>
 
 			<!-- Close Button -->
-			<Button name="UltraGambling_CloseButton" inherits="UIPanelCloseButton">
+			<Button name="PhantomGamble_CloseButton" inherits="UIPanelCloseButton">
 				<Anchors>
 					<Anchor point="TOPRIGHT">
 						<Offset>
@@ -213,17 +212,17 @@
 				</Anchors>
 				<Scripts>
 					<OnClick>
-						hide_from_xml();
+						PhantomGamble_SlashCmd("hide");
 					</OnClick>
 				</Scripts>
 			</Button>
 		</Frames>
 		<Scripts>
 			<OnLoad>
-				UltraGambling_OnLoad();
+				PhantomGamble_OnLoad();
 			</OnLoad>
 			<OnEvent>
-				UltraGambling_OnEvent(event);
+				PhantomGamble_OnEvent(event);
 			</OnEvent>
 			<OnMouseDown>
 				this:StartMoving();
@@ -235,7 +234,7 @@
 	</Frame>
 
 	<!-- Minimap Button -->
-	<Button name="UG_MinimapButton" movable="true" enableMouse="true" parent="Minimap">
+	<Button name="PG_MinimapButton" movable="true" enableMouse="true" parent="Minimap">
 		<Size>
 			<AbsDimension x="32" y="32"/>
 		</Size>
@@ -244,7 +243,7 @@
 		</Anchors>
 		<Layers>
 			<Layer level="BACKGROUND">
-				<Texture name="UG_MinimapButton_Icon" file="Interface\Icons\INV_Misc_Coin_01">
+				<Texture name="PG_MinimapButton_Icon" file="Interface\Icons\INV_Misc_Coin_01">
 					<Size>
 						<AbsDimension x="20" y="20"/>
 					</Size>
@@ -258,7 +257,7 @@
 				</Texture>
 			</Layer>
 			<Layer level="OVERLAY">
-				<Texture name="UG_MinimapButton_Border" file="Interface\Minimap\MiniMap-TrackingBorder">
+				<Texture name="PG_MinimapButton_Border" file="Interface\Minimap\MiniMap-TrackingBorder">
 					<Size>
 						<AbsDimension x="52" y="52"/>
 					</Size>
@@ -270,10 +269,10 @@
 		</Layers>
 		<Scripts>
 			<OnLoad>
-				UG_MinimapButton_Reposition();
+				PG_MinimapButton_Reposition();
 			</OnLoad>
 			<OnClick>
-				UG_MinimapButton_OnClick();
+				PG_MinimapButton_OnClick();
 			</OnClick>
 			<OnDragStart>
 				this:StartMoving();
@@ -283,7 +282,7 @@
 			</OnDragStop>
 			<OnEnter>
 				GameTooltip:SetOwner(this, "ANCHOR_LEFT");
-				GameTooltip:SetText("UltraGamble");
+				GameTooltip:SetText("PhantomGamble");
 				GameTooltip:AddLine("Click to toggle window", 1, 1, 1);
 				GameTooltip:AddLine("Drag to move", 1, 1, 1);
 				GameTooltip:Show();
@@ -296,10 +295,10 @@
 	</Button>
 
 	<!-- Dragging Frame for Minimap Button -->
-	<Frame name="UG_MinimapButton_DraggingFrame" hidden="true" parent="UG_MinimapButton">
+	<Frame name="PG_MinimapButton_DraggingFrame" hidden="true" parent="PG_MinimapButton">
 		<Scripts>
 			<OnUpdate>
-				UG_MinimapButton_DraggingFrame_OnUpdate();
+				PG_MinimapButton_DraggingFrame_OnUpdate();
 			</OnUpdate>
 		</Scripts>
 	</Frame>
