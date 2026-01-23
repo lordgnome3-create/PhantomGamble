@@ -663,16 +663,15 @@ function UltraGambling_OnClickRoll1()
 	ChatMsg("1");
 end
 
-UG_Settings = {
-	MinimapPos = 75
-}
-
 function UG_MinimapButton_Reposition()
+	if not UG_MinimapButton then return end
+	if not UG_Settings then UG_Settings = { MinimapPos = 75 } end
 	UG_MinimapButton:ClearAllPoints()
-	UG_MinimapButton:SetPoint("TOPLEFT", Minimap, "TOPLEFT", 52-(80*cos(UG_Settings.MinimapPos)), (80*sin(UG_Settings.MinimapPos))-52)
+	UG_MinimapButton:SetPoint("TOPLEFT", Minimap, "TOPLEFT", 52-(80*math.cos(math.rad(UG_Settings.MinimapPos))), (80*math.sin(math.rad(UG_Settings.MinimapPos)))-52)
 end
 
 function UG_MinimapButton_DraggingFrame_OnUpdate()
+	if not UG_Settings then UG_Settings = { MinimapPos = 75 } end
 	local xpos,ypos = GetCursorPosition()
 	local xmin,ymin = Minimap:GetLeft(), Minimap:GetBottom()
 
