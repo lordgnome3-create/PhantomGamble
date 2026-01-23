@@ -269,9 +269,10 @@ function UltraGambling_SlashCmd(msg)
 	end
 end
 
-SlashCmdList["ULTRAGAMBLING"] = UltraGambling_SlashCmd;
-SLASH_ULTRAGAMBLING1 = "/UltraGambler";
+-- Register slash commands
+SLASH_ULTRAGAMBLING1 = "/ultragambler";
 SLASH_ULTRAGAMBLING2 = "/ug";
+SlashCmdList["ULTRAGAMBLING"] = UltraGambling_SlashCmd;
 
 function UltraGambling_ParseChatMsg(arg1, arg2)
 	if (arg1 == "1") then
@@ -305,7 +306,9 @@ local function OptionsFormatter(text, prefix)
 	DEFAULT_CHAT_FRAME:AddMessage(string.format("%s%s%s: %s", GREEN_FONT_COLOR_CODE, prefix, FONT_COLOR_CODE_CLOSE, text))
 end
 
-function UltraGambling_OnEvent(event)
+function UltraGambling_OnEvent()
+	local event = event -- In 1.12 Lua, event is a global
+	
 	if (event == "PLAYER_ENTERING_WORLD") then
 		if not UltraGambling_Frame then
 			CreateMainFrame()
@@ -362,6 +365,8 @@ function UltraGambling_OnEvent(event)
 		else
 			UltraGambling_Frame:Hide();
 		end
+		
+		DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00UltraGambler loaded! Type /ug for commands.|r")
 	end
 
 	if (event == "CHAT_MSG_WHISPER") then
@@ -663,4 +668,185 @@ function UltraGambling_Tiebreaker()
 		UltraGambling_Report();
 	else
 		AcceptRolls = "false";
-		if getn(UltraGambling.lowtie) > 0
+		if getn(UltraGambling.lowtie) > 0 then
+			lowbreak = 1;
+		end
+		if getn(UltraGambling.hightie) > 0 then
+			highbreak = 1;
+		end
+	end
+end
+
+-- Missing functions that were referenced but not defined
+function UltraGambling_Reset()
+	totalrolls = 0
+	tierolls = 0
+	lowname = ""
+	highname = ""
+	low = 0
+	high = 0
+	tie = 0
+	highbreak = 0
+	lowbreak = 0
+	tiehigh = 0
+	tielow = 0
+	AcceptOnes = "false"
+	AcceptRolls = "false"
+	if UltraGambling then
+		UltraGambling.strings = {}
+		UltraGambling.lowtie = {}
+		UltraGambling.hightie = {}
+	end
+end
+
+function UltraGambling_ResetCmd()
+	Print("", "", "UltraGamble has been reset.")
+end
+
+function UltraGambling_Add(name)
+	if not UltraGambling.strings then UltraGambling.strings = {} end
+	for i, v in UltraGambling.strings do
+		if strlower(v) == strlower(name) then
+			return -- Already in list
+		end
+	end
+	table.insert(UltraGambling.strings, name)
+	totalrolls = getn(UltraGambling.strings)
+	if whispermethod then
+		ChatMsg("You have joined the gamble!", "WHISPER", nil, name)
+	end
+end
+
+function UltraGambling_Remove(name)
+	if not UltraGambling.strings then return end
+	for i, v in UltraGambling.strings do
+		if strlower(v) == strlower(name) then
+			table.remove(UltraGambling.strings, i)
+			totalrolls = getn(UltraGambling.strings)
+			if whispermethod then
+				ChatMsg("You have left the gamble.", "WHISPER", nil, name)
+			end
+			return
+		end
+	end
+end
+
+function UltraGambling_ChkBan(name)
+	if not UltraGambling or not UltraGambling.bans then return 0 end
+	for i, v in UltraGambling.bans do
+		if strlower(v) == strlower(name) then
+			return 1
+		end
+	end
+	return 0
+end
+
+function UltraGambling_AddBan(name)
+	if not name or name == "" then
+		Print("", "", "Usage: /ug ban <playername>")
+		return
+	end
+	if not UltraGambling.bans then UltraGambling.bans = {} end
+	table.insert(UltraGambling.bans, name)
+	Print("", "", name .. " has been banned from gambling.")
+end
+
+function UltraGambling_RemoveBan(name)
+	if not name or name == "" then
+		Print("", "", "Usage: /ug unban <playername>")
+		return
+	end
+	if not UltraGambling.bans then return end
+	for i, v in UltraGambling.bans do
+		if strlower(v) == strlower(name) then
+			table.remove(UltraGambling.bans, i)
+			Print("", "", name .. " has been unbanned.")
+			return
+		end
+	end
+	Print("", "", name .. " was not found in ban list.")
+end
+
+function UltraGambling_ListBan()
+	if not UltraGambling.bans or getn(UltraGambling.bans) == 0 then
+		Print("", "", "No players are currently banned.")
+		return
+	end
+	Print("", "", "Banned players:")
+	for i, v in UltraGambling.bans do
+		DEFAULT_CHAT_FRAME:AddMessage("  " .. v)
+	end
+end
+
+function UltraGambling_List()
+	if not UltraGambling.strings or getn(UltraGambling.strings) == 0 then
+		ChatMsg("No players in current game.")
+		return
+	end
+	local list = ""
+	for i, v in UltraGambling.strings do
+		if list ~= "" then list = list .. ", " end
+		list = list .. v
+	end
+	ChatMsg("Players: " .. list)
+end
+
+function UltraGambling_ParseRoll(msg)
+	-- Parse roll messages like "PlayerName rolls 50 (1-100)"
+	local name, roll, minroll, maxroll = string.match(msg, "(.+) rolls (%d+) %((%d+)-(%d+)%)")
+	if not name then return end
+	
+	roll = tonumber(roll)
+	minroll = tonumber(minroll)
+	maxroll = tonumber(maxroll)
+	
+	-- Check if this player is in the game
+	local found = false
+	if UltraGambling.strings then
+		for i, v in UltraGambling.strings do
+			if strlower(v) == strlower(name) then
+				found = true
+				table.remove(UltraGambling.strings, i)
+				break
+			end
+		end
+	end
+	
+	if not found then return end
+	
+	-- Check roll range
+	if maxroll ~= theMax or minroll ~= 1 then
+		ChatMsg(name .. " rolled with wrong range! Should be 1-" .. theMax)
+		return
+	end
+	
+	-- Track high and low
+	if roll > high then
+		high = roll
+		highname = name
+	end
+	if roll < low then
+		low = roll
+		lowname = name
+	end
+	
+	totalrolls = totalrolls - 1
+	
+	-- Check if all rolls are in
+	if totalrolls == 0 then
+		UltraGambling_Report()
+	end
+end
+
+-- ============================================
+-- THIS IS THE KEY FIX: Create and register the event frame
+-- ============================================
+local UltraGambling_EventFrame = CreateFrame("Frame", "UltraGambling_EventFrame", UIParent)
+UltraGambling_EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+UltraGambling_EventFrame:RegisterEvent("CHAT_MSG_WHISPER")
+UltraGambling_EventFrame:RegisterEvent("CHAT_MSG_RAID")
+UltraGambling_EventFrame:RegisterEvent("CHAT_MSG_RAID_LEADER")
+UltraGambling_EventFrame:RegisterEvent("CHAT_MSG_GUILD")
+UltraGambling_EventFrame:RegisterEvent("CHAT_MSG_PARTY")
+UltraGambling_EventFrame:RegisterEvent("CHAT_MSG_SYSTEM")
+UltraGambling_EventFrame:SetScript("OnEvent", UltraGambling_OnEvent)
