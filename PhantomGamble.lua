@@ -640,14 +640,16 @@ local function CreateMainFrame()
 
 	-- Starting number label
 	local drStartLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	drStartLabel:SetPoint("TOP", rightTitle, "BOTTOM", -30, -10)
+	drStartLabel:SetPoint("TOPLEFT", rightTitle, "BOTTOM", -50, -10)
+	drStartLabel:SetWidth(35)
+	drStartLabel:SetJustifyH("RIGHT")
 	drStartLabel:SetText("|cffffffffStart:|r")
 
 	-- Starting number editbox
 	local drEditbox = CreateFrame("EditBox", "PhantomGamble_DR_EditBox", f)
 	drEditbox:SetWidth(50)
 	drEditbox:SetHeight(20)
-	drEditbox:SetPoint("LEFT", drStartLabel, "RIGHT", 5, 0)
+	drEditbox:SetPoint("TOPLEFT", drStartLabel, "TOPRIGHT", 5, 2)
 	drEditbox:SetFontObject(ChatFontNormal)
 	drEditbox:SetAutoFocus(false)
 	drEditbox:SetNumeric(true)
@@ -660,16 +662,18 @@ local function CreateMainFrame()
 	drEditBg:SetTexture(0.1, 0.1, 0.1, 0.8)
 	drEditBg:SetAllPoints(drEditbox)
 
-	-- Gold wager label (aligned with Start label)
+	-- Gold wager label
 	local drGoldLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	drGoldLabel:SetPoint("TOPRIGHT", drStartLabel, "BOTTOMRIGHT", 0, -10)
+	drGoldLabel:SetPoint("TOPLEFT", drStartLabel, "BOTTOMLEFT", 0, -10)
+	drGoldLabel:SetWidth(35)
+	drGoldLabel:SetJustifyH("RIGHT")
 	drGoldLabel:SetText("|cffffd700Gold:|r")
 
-	-- Gold wager editbox (aligned with Start editbox)
+	-- Gold wager editbox
 	local drGoldEditbox = CreateFrame("EditBox", "PhantomGamble_DR_GoldEditBox", f)
 	drGoldEditbox:SetWidth(50)
 	drGoldEditbox:SetHeight(20)
-	drGoldEditbox:SetPoint("LEFT", drGoldLabel, "RIGHT", 5, 0)
+	drGoldEditbox:SetPoint("TOPLEFT", drGoldLabel, "TOPRIGHT", 5, 2)
 	drGoldEditbox:SetFontObject(ChatFontNormal)
 	drGoldEditbox:SetAutoFocus(false)
 	drGoldEditbox:SetNumeric(true)
