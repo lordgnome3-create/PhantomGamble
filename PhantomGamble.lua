@@ -28,7 +28,8 @@ local DR_Player1 = nil
 local DR_Player2 = nil
 local DR_CurrentRoller = nil
 local DR_CurrentMax = 0
-local DR_StartAmount = 100
+local DR_StartNumber = 100
+local DR_GoldWager = 100
 local DR_AcceptingPlayers = false
 local DR_WaitingForRoll = false
 
@@ -629,10 +630,15 @@ local function CreateMainFrame()
 	rightTitle:SetPoint("TOP", f, "TOPRIGHT", -105, -30)
 	rightTitle:SetText("|cffff0000Death Roll|r")
 
+	-- Starting number label and editbox
+	local drStartLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	drStartLabel:SetPoint("TOP", rightTitle, "BOTTOM", -35, -5)
+	drStartLabel:SetText("|cffffffffStart:|r")
+	
 	local drEditbox = CreateFrame("EditBox", "PhantomGamble_DR_EditBox", f)
-	drEditbox:SetWidth(80)
-	drEditbox:SetHeight(24)
-	drEditbox:SetPoint("TOP", rightTitle, "BOTTOM", 0, -8)
+	drEditbox:SetWidth(50)
+	drEditbox:SetHeight(20)
+	drEditbox:SetPoint("LEFT", drStartLabel, "RIGHT", 5, 0)
 	drEditbox:SetFontObject(ChatFontNormal)
 	drEditbox:SetAutoFocus(false)
 	drEditbox:SetNumeric(true)
@@ -645,10 +651,31 @@ local function CreateMainFrame()
 	drEditBg:SetTexture(0.1, 0.1, 0.1, 0.8)
 	drEditBg:SetAllPoints(drEditbox)
 
+	-- Gold wager label and editbox
+	local drGoldLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	drGoldLabel:SetPoint("TOP", drStartLabel, "BOTTOM", 0, -8)
+	drGoldLabel:SetText("|cffffd700Gold:|r")
+	
+	local drGoldEditbox = CreateFrame("EditBox", "PhantomGamble_DR_GoldEditBox", f)
+	drGoldEditbox:SetWidth(50)
+	drGoldEditbox:SetHeight(20)
+	drGoldEditbox:SetPoint("LEFT", drGoldLabel, "RIGHT", 5, 0)
+	drGoldEditbox:SetFontObject(ChatFontNormal)
+	drGoldEditbox:SetAutoFocus(false)
+	drGoldEditbox:SetNumeric(true)
+	drGoldEditbox:SetMaxLetters(6)
+	drGoldEditbox:SetJustifyH("CENTER")
+	drGoldEditbox:SetScript("OnEscapePressed", function() this:ClearFocus() end)
+	drGoldEditbox:SetScript("OnEnterPressed", function() this:ClearFocus() end)
+
+	local drGoldEditBg = drGoldEditbox:CreateTexture(nil, "BACKGROUND")
+	drGoldEditBg:SetTexture(0.1, 0.1, 0.1, 0.8)
+	drGoldEditBg:SetAllPoints(drGoldEditbox)
+
 	local drStartBtn = CreateFrame("Button", "PhantomGamble_DR_StartBtn", f, "GameMenuButtonTemplate")
 	drStartBtn:SetWidth(120)
 	drStartBtn:SetHeight(22)
-	drStartBtn:SetPoint("TOP", drEditbox, "BOTTOM", 0, -8)
+	drStartBtn:SetPoint("TOP", drGoldLabel, "BOTTOM", 35, -8)
 	drStartBtn:SetText("Start Death Roll")
 	drStartBtn:SetScript("OnClick", function() PhantomGamble_DR_Start() end)
 
@@ -783,21 +810,33 @@ end
 -- ============================================
 
 function PhantomGamble_DR_Start()
-	local editText = PhantomGamble_DR_EditBox:GetText()
-	if editText == "" or not tonumber(editText) or tonumber(editText) < 2 then
+	local startText = PhantomGamble_DR_EditBox:GetText()
+	local goldText = PhantomGamble_DR_GoldEditBox:GetText()
+	
+	if startText == "" or not tonumber(startText) or tonumber(startText) < 2 then
 		DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Please enter a valid starting number (2 or higher).|r")
 		return
 	end
 	
-	DR_StartAmount = tonumber(editText)
-	DR_CurrentMax = DR_StartAmount
+	if goldText == "" or not tonumber(goldText) or tonumber(goldText) < 1 then
+		DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Please enter a valid gold wager (1 or higher).|r")
+		return
+	end
+	
+	DR_StartNumber = tonumber(startText)
+	DR_GoldWager = tonumber(goldText)
+	DR_CurrentMax = DR_StartNumber
 	DR_Active = false
 	DR_AcceptingPlayers = true
 	DR_Player1 = nil
 	DR_Player2 = nil
 	DR_WaitingForRoll = false
 	
-	ChatMsg("Death Roll for " .. DR_StartAmount .. " gold! Type 1 to join (need 2 players).")
+	-- Save last used values
+	PhantomGamble["lastDRStart"] = DR_StartNumber
+	PhantomGamble["lastDRGold"] = DR_GoldWager
+	
+	ChatMsg("Death Roll! Starting at " .. DR_StartNumber .. " for " .. DR_GoldWager .. " gold! Type 1 to join (need 2 players).")
 	
 	PhantomGamble_DR_StartBtn:SetText("Waiting...")
 	PhantomGamble_DR_StartBtn:Disable()
@@ -847,7 +886,7 @@ function PhantomGamble_DR_AddPlayer(name)
 		
 		PhantomGamble_DR_Status:SetText("|cff00ff00P1: " .. DR_Player1 .. "|r\n|cff00ff00P2: " .. DR_Player2 .. "|r")
 		
-		ChatMsg("Death Roll started! " .. DR_Player1 .. " vs " .. DR_Player2 .. " for " .. DR_StartAmount .. " gold!")
+		ChatMsg("Death Roll started! " .. DR_Player1 .. " vs " .. DR_Player2 .. " - Start: " .. DR_StartNumber .. ", Wager: " .. DR_GoldWager .. " gold!")
 		ChatMsg(DR_Player1 .. " rolls first! /random 1-" .. DR_CurrentMax)
 		
 		if whispermethod then
@@ -891,11 +930,11 @@ function PhantomGamble_DR_ParseRoll(msg)
 		loser = string.upper(string.sub(loser, 1, 1)) .. string.sub(loser, 2)
 		
 		ChatMsg("DEATH! " .. loser .. " rolled a 1!")
-		ChatMsg(loser .. " owes " .. winner .. " " .. DR_StartAmount .. " gold!")
+		ChatMsg(loser .. " owes " .. winner .. " " .. DR_GoldWager .. " gold!")
 		
 		-- Update stats
-		PhantomGamble["stats"][winner] = (PhantomGamble["stats"][winner] or 0) + DR_StartAmount
-		PhantomGamble["stats"][loser] = (PhantomGamble["stats"][loser] or 0) - DR_StartAmount
+		PhantomGamble["stats"][winner] = (PhantomGamble["stats"][winner] or 0) + DR_GoldWager
+		PhantomGamble["stats"][loser] = (PhantomGamble["stats"][loser] or 0) - DR_GoldWager
 		statsNeedUpdate = true
 		
 		if PhantomGamble_StatsFrame and PhantomGamble_StatsFrame:IsVisible() then
@@ -1217,7 +1256,8 @@ function PhantomGamble_OnEvent()
 		end
 
 		PhantomGamble_EditBox:SetText(tostring(PhantomGamble["lastroll"] or 100))
-		PhantomGamble_DR_EditBox:SetText(tostring(PhantomGamble["lastroll"] or 100))
+		PhantomGamble_DR_EditBox:SetText(tostring(PhantomGamble["lastDRStart"] or 100))
+		PhantomGamble_DR_GoldEditBox:SetText(tostring(PhantomGamble["lastDRGold"] or 100))
 		chatmethod = chatmethods[PhantomGamble["chat"] or 1] or "RAID"
 		PhantomGamble_CHAT_Button:SetText(chatmethod)
 
