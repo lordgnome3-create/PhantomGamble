@@ -33,6 +33,12 @@ local DR_GoldWager = 100
 local DR_AcceptingPlayers = false
 local DR_WaitingForRoll = false
 
+-- Debt tracking variables
+local debtsNeedUpdate = true
+local sortedDebts = {}
+local debtLines = {}
+local MAX_DEBT_LINES = 50
+
 local chatmethods = { "RAID", "GUILD", "PARTY", "SAY" }
 local chatmethod = chatmethods[1]
 
@@ -246,6 +252,210 @@ local function UpdateStatsWindowLayout()
 end
 
 -- ============================================
+-- DEBT TRACKING FUNCTIONS
+-- ============================================
+
+local function GetDebtKey(debtor, creditor)
+	-- Always store with alphabetically first name first for consistency
+	if string.lower(debtor) < string.lower(creditor) then
+		return debtor .. ":" .. creditor
+	else
+		return creditor .. ":" .. debtor
+	end
+end
+
+local function AddDebt(debtor, creditor, amount)
+	if not PhantomGamble["debts"] then PhantomGamble["debts"] = {} end
+	
+	-- Normalize names
+	debtor = string.upper(string.sub(debtor, 1, 1)) .. string.sub(debtor, 2)
+	creditor = string.upper(string.sub(creditor, 1, 1)) .. string.sub(creditor, 2)
+	
+	local key = GetDebtKey(debtor, creditor)
+	
+	if not PhantomGamble["debts"][key] then
+		PhantomGamble["debts"][key] = { player1 = debtor, player2 = creditor, amount = 0 }
+	end
+	
+	local debt = PhantomGamble["debts"][key]
+	
+	-- Positive amount means player1 owes player2
+	-- We need to figure out which direction to add
+	if string.lower(debt.player1) == string.lower(debtor) then
+		debt.amount = debt.amount + amount
+	else
+		debt.amount = debt.amount - amount
+	end
+	
+	-- If amount is 0, remove the debt entry
+	if debt.amount == 0 then
+		PhantomGamble["debts"][key] = nil
+	end
+	
+	debtsNeedUpdate = true
+end
+
+local function PayDebt(payer, receiver, amount)
+	if not PhantomGamble["debts"] then return false end
+	
+	-- Normalize names
+	payer = string.upper(string.sub(payer, 1, 1)) .. string.sub(payer, 2)
+	receiver = string.upper(string.sub(receiver, 1, 1)) .. string.sub(receiver, 2)
+	
+	local key = GetDebtKey(payer, receiver)
+	local debt = PhantomGamble["debts"][key]
+	
+	if not debt then
+		return false, "No debt found between " .. payer .. " and " .. receiver
+	end
+	
+	-- Figure out who owes whom
+	local owedAmount = 0
+	if string.lower(debt.player1) == string.lower(payer) then
+		owedAmount = debt.amount
+	else
+		owedAmount = -debt.amount
+	end
+	
+	if owedAmount <= 0 then
+		return false, payer .. " doesn't owe " .. receiver .. " anything"
+	end
+	
+	-- Apply payment
+	if string.lower(debt.player1) == string.lower(payer) then
+		debt.amount = debt.amount - amount
+	else
+		debt.amount = debt.amount + amount
+	end
+	
+	-- If debt is paid off or overpaid, clean up
+	if debt.amount == 0 then
+		PhantomGamble["debts"][key] = nil
+	end
+	
+	debtsNeedUpdate = true
+	return true, nil
+end
+
+local function GetPlayerDebt(player1, player2)
+	if not PhantomGamble["debts"] then return 0 end
+	
+	local key = GetDebtKey(player1, player2)
+	local debt = PhantomGamble["debts"][key]
+	
+	if not debt then return 0 end
+	
+	if string.lower(debt.player1) == string.lower(player1) then
+		return debt.amount
+	else
+		return -debt.amount
+	end
+end
+
+local function UpdateSortedDebts()
+	sortedDebts = {}
+	if not PhantomGamble or not PhantomGamble["debts"] then return end
+	
+	for key, debt in pairs(PhantomGamble["debts"]) do
+		if debt.amount ~= 0 then
+			local debtor, creditor, amount
+			if debt.amount > 0 then
+				debtor = debt.player1
+				creditor = debt.player2
+				amount = debt.amount
+			else
+				debtor = debt.player2
+				creditor = debt.player1
+				amount = -debt.amount
+			end
+			table.insert(sortedDebts, { debtor = debtor, creditor = creditor, amount = amount })
+		end
+	end
+	
+	table.sort(sortedDebts, function(a, b) return a.amount > b.amount end)
+	debtsNeedUpdate = false
+end
+
+local function RefreshDebtsDisplay()
+	if not PhantomGamble_DebtsFrame or not PhantomGamble_DebtsFrame:IsVisible() then return end
+	if not PhantomGamble_DebtsScrollChild then return end
+	
+	if debtsNeedUpdate then UpdateSortedDebts() end
+	
+	for i = 1, MAX_DEBT_LINES do
+		if debtLines[i] then debtLines[i]:Hide() end
+	end
+	
+	local childWidth = PhantomGamble_DebtsScrollChild:GetWidth()
+	if not childWidth or childWidth <= 0 then childWidth = 240 end
+	
+	local yOffset = 0
+	for i, entry in ipairs(sortedDebts) do
+		if i > MAX_DEBT_LINES then break end
+		
+		local line = debtLines[i]
+		if not line then
+			line = PhantomGamble_DebtsScrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+			line:SetJustifyH("LEFT")
+			line:SetWidth(childWidth - 10)
+			debtLines[i] = line
+		end
+		
+		line:ClearAllPoints()
+		line:SetPoint("TOPLEFT", PhantomGamble_DebtsScrollChild, "TOPLEFT", 5, -yOffset)
+		line:SetWidth(childWidth - 10)
+		
+		line:SetText(string.format("|cffff0000%s|r owes |cff00ff00%s|r |cffffff00%d|r gold", entry.debtor, entry.creditor, entry.amount))
+		line:Show()
+		
+		yOffset = yOffset + STATS_LINE_HEIGHT
+	end
+	
+	if table.getn(sortedDebts) == 0 then
+		local line = debtLines[1]
+		if not line then
+			line = PhantomGamble_DebtsScrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+			line:SetJustifyH("LEFT")
+			debtLines[1] = line
+		end
+		line:ClearAllPoints()
+		line:SetPoint("TOPLEFT", PhantomGamble_DebtsScrollChild, "TOPLEFT", 5, 0)
+		line:SetText("|cff00ff00No outstanding debts!|r")
+		line:Show()
+		yOffset = STATS_LINE_HEIGHT
+	end
+	
+	local totalHeight = math.max(yOffset + 10, 50)
+	PhantomGamble_DebtsScrollChild:SetHeight(totalHeight)
+	
+	if PhantomGamble_DebtsScrollBar then
+		local visibleHeight = PhantomGamble_DebtsScrollFrame:GetHeight()
+		local maxScroll = math.max(0, totalHeight - visibleHeight)
+		PhantomGamble_DebtsScrollBar:SetMinMaxValues(0, maxScroll)
+	end
+end
+
+local function ReportDebts()
+	if not PhantomGamble or not PhantomGamble["debts"] or not next(PhantomGamble["debts"]) then
+		Print("", "", "No outstanding debts!")
+		return
+	end
+	
+	if debtsNeedUpdate then UpdateSortedDebts() end
+	
+	if table.getn(sortedDebts) == 0 then
+		Print("", "", "No outstanding debts!")
+		return
+	end
+	
+	ChatMsg("--- PhantomGamble Outstanding Debts ---")
+	for i, entry in ipairs(sortedDebts) do
+		if i > 10 then break end
+		ChatMsg(string.format("%s owes %s %d gold", entry.debtor, entry.creditor, entry.amount))
+	end
+end
+
+-- ============================================
 -- STATS WINDOW
 -- ============================================
 
@@ -445,8 +655,177 @@ local function CreateStatsWindow()
 end
 
 -- ============================================
--- LAYOUT UPDATE
+-- DEBTS WINDOW
 -- ============================================
+
+local function CreateDebtsWindow()
+	local f = CreateFrame("Frame", "PhantomGamble_DebtsFrame", UIParent)
+	f:SetWidth(300)
+	f:SetHeight(300)
+	f:SetPoint("LEFT", PhantomGamble_Frame, "RIGHT", 300, 0)
+	f:SetMovable(true)
+	f:SetResizable(true)
+	f:EnableMouse(true)
+	f:SetFrameStrata("DIALOG")
+	f:SetMinResize(250, 200)
+	f:SetMaxResize(450, 500)
+	
+	local bg = f:CreateTexture(nil, "BACKGROUND")
+	bg:SetTexture(0, 0, 0, 0.85)
+	bg:SetAllPoints(f)
+	
+	local borderTop = f:CreateTexture(nil, "BORDER")
+	borderTop:SetTexture(0.6, 0.6, 0.6, 1)
+	borderTop:SetHeight(2)
+	borderTop:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
+	borderTop:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
+	
+	local borderBottom = f:CreateTexture(nil, "BORDER")
+	borderBottom:SetTexture(0.6, 0.6, 0.6, 1)
+	borderBottom:SetHeight(2)
+	borderBottom:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, 0)
+	borderBottom:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
+	
+	local borderLeft = f:CreateTexture(nil, "BORDER")
+	borderLeft:SetTexture(0.6, 0.6, 0.6, 1)
+	borderLeft:SetWidth(2)
+	borderLeft:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
+	borderLeft:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, 0)
+	
+	local borderRight = f:CreateTexture(nil, "BORDER")
+	borderRight:SetTexture(0.6, 0.6, 0.6, 1)
+	borderRight:SetWidth(2)
+	borderRight:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
+	borderRight:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
+	
+	local titleBg = f:CreateTexture(nil, "ARTWORK")
+	titleBg:SetTexture(0.4, 0.2, 0.2, 1)
+	titleBg:SetHeight(24)
+	titleBg:SetPoint("TOPLEFT", f, "TOPLEFT", 2, -2)
+	titleBg:SetPoint("TOPRIGHT", f, "TOPRIGHT", -2, -2)
+	
+	local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	title:SetPoint("TOP", f, "TOP", 0, -8)
+	title:SetText("|cffFF6600Outstanding Debts|r")
+	
+	f:SetScript("OnMouseDown", function()
+		if arg1 == "LeftButton" then this:StartMoving() end
+	end)
+	f:SetScript("OnMouseUp", function() this:StopMovingOrSizing() end)
+	
+	local closeBtn = CreateFrame("Button", "PhantomGamble_DebtsCloseButton", f, "UIPanelCloseButton")
+	closeBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -2, -2)
+	closeBtn:SetScript("OnClick", function() PhantomGamble_DebtsFrame:Hide() end)
+	
+	-- Instructions
+	local instructions = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	instructions:SetPoint("TOP", f, "TOP", 0, -28)
+	instructions:SetWidth(280)
+	instructions:SetText("|cffffff00Type '!paid Name Amount' in chat to confirm payment|r")
+	
+	local scrollFrame = CreateFrame("ScrollFrame", "PhantomGamble_DebtsScrollFrame", f)
+	scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -45)
+	scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -30, 40)
+	scrollFrame:EnableMouseWheel(true)
+	
+	local scrollChild = CreateFrame("Frame", "PhantomGamble_DebtsScrollChild", scrollFrame)
+	scrollChild:SetWidth(260)
+	scrollChild:SetHeight(1)
+	scrollFrame:SetScrollChild(scrollChild)
+	
+	local scrollBar = CreateFrame("Slider", "PhantomGamble_DebtsScrollBar", scrollFrame)
+	scrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 2, -16)
+	scrollBar:SetPoint("BOTTOMLEFT", scrollFrame, "BOTTOMRIGHT", 2, 16)
+	scrollBar:SetWidth(16)
+	scrollBar:SetOrientation("VERTICAL")
+	scrollBar:SetMinMaxValues(0, 1)
+	scrollBar:SetValueStep(1)
+	scrollBar:SetValue(0)
+	
+	local scrollBg = scrollBar:CreateTexture(nil, "BACKGROUND")
+	scrollBg:SetAllPoints(scrollBar)
+	scrollBg:SetTexture(0, 0, 0, 0.5)
+	
+	local thumb = scrollBar:CreateTexture(nil, "OVERLAY")
+	thumb:SetTexture(0.5, 0.5, 0.5, 1)
+	thumb:SetWidth(14)
+	thumb:SetHeight(30)
+	scrollBar:SetThumbTexture(thumb)
+	
+	scrollBar:SetScript("OnValueChanged", function()
+		scrollFrame:SetVerticalScroll(this:GetValue())
+	end)
+	
+	scrollFrame:SetScript("OnMouseWheel", function()
+		local current = scrollBar:GetValue()
+		local minVal, maxVal = scrollBar:GetMinMaxValues()
+		local step = STATS_LINE_HEIGHT * 3
+		if arg1 > 0 then
+			scrollBar:SetValue(math.max(minVal, current - step))
+		else
+			scrollBar:SetValue(math.min(maxVal, current + step))
+		end
+	end)
+	
+	-- Bottom buttons
+	local reportBtn = CreateFrame("Button", "PhantomGamble_DebtsReportBtn", f, "GameMenuButtonTemplate")
+	reportBtn:SetWidth(100)
+	reportBtn:SetHeight(20)
+	reportBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 10)
+	reportBtn:SetText("Report Debts")
+	reportBtn:SetScript("OnClick", function() ReportDebts() end)
+	
+	local clearBtn = CreateFrame("Button", "PhantomGamble_DebtsClearBtn", f, "GameMenuButtonTemplate")
+	clearBtn:SetWidth(100)
+	clearBtn:SetHeight(20)
+	clearBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -25, 10)
+	clearBtn:SetText("Clear All Debts")
+	clearBtn:SetScript("OnClick", function()
+		PhantomGamble["debts"] = {}
+		debtsNeedUpdate = true
+		RefreshDebtsDisplay()
+		Print("", "", "All debts have been cleared.")
+	end)
+	
+	-- Resize grip
+	local resizeBtn = CreateFrame("Button", "PhantomGamble_DebtsResizeButton", f)
+	resizeBtn:SetWidth(16)
+	resizeBtn:SetHeight(16)
+	resizeBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -2, 2)
+	resizeBtn:EnableMouse(true)
+	local resizeTexture = resizeBtn:CreateTexture(nil, "OVERLAY")
+	resizeTexture:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+	resizeTexture:SetAllPoints(resizeBtn)
+	resizeBtn:SetScript("OnMouseDown", function() PhantomGamble_DebtsFrame:StartSizing("BOTTOMRIGHT") end)
+	resizeBtn:SetScript("OnMouseUp", function() 
+		PhantomGamble_DebtsFrame:StopMovingOrSizing()
+		local scrollWidth = PhantomGamble_DebtsScrollFrame:GetWidth()
+		PhantomGamble_DebtsScrollChild:SetWidth(scrollWidth)
+		RefreshDebtsDisplay()
+	end)
+	
+	f:SetScript("OnSizeChanged", function() 
+		local scrollWidth = PhantomGamble_DebtsScrollFrame:GetWidth()
+		if scrollWidth and scrollWidth > 0 then
+			PhantomGamble_DebtsScrollChild:SetWidth(scrollWidth)
+		end
+	end)
+	
+	f:SetScript("OnShow", function()
+		debtsNeedUpdate = true
+		this:SetScript("OnUpdate", function()
+			this:SetScript("OnUpdate", nil)
+			local scrollWidth = PhantomGamble_DebtsScrollFrame:GetWidth()
+			if scrollWidth and scrollWidth > 0 then
+				PhantomGamble_DebtsScrollChild:SetWidth(scrollWidth)
+			end
+			RefreshDebtsDisplay()
+		end)
+	end)
+	
+	f:Hide()
+	return f
+end
 
 local function UpdateLayout()
 	if not PhantomGamble_Frame then return end
@@ -571,6 +950,38 @@ local function CreateMainFrame()
 		GameTooltip:Show()
 	end)
 	statsBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+	-- Debts button (next to stats)
+	local debtsBtn = CreateFrame("Button", "PhantomGamble_DebtsButton", f)
+	debtsBtn:SetWidth(20)
+	debtsBtn:SetHeight(20)
+	debtsBtn:SetPoint("LEFT", statsBtn, "RIGHT", 3, 0)
+	
+	local debtsBtnBg = debtsBtn:CreateTexture(nil, "BACKGROUND")
+	debtsBtnBg:SetTexture(0.5, 0.3, 0.3, 1)
+	debtsBtnBg:SetAllPoints(debtsBtn)
+	
+	local debtsBtnText = debtsBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	debtsBtnText:SetPoint("CENTER", debtsBtn, "CENTER", 0, 0)
+	debtsBtnText:SetText("|cffFF6600D|r")
+	
+	debtsBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+	debtsBtn:SetScript("OnClick", function()
+		if not PhantomGamble_DebtsFrame then CreateDebtsWindow() end
+		if PhantomGamble_DebtsFrame:IsVisible() then
+			PhantomGamble_DebtsFrame:Hide()
+		else
+			PhantomGamble_DebtsFrame:Show()
+		end
+	end)
+	debtsBtn:SetScript("OnEnter", function()
+		GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+		GameTooltip:SetText("Outstanding Debts")
+		GameTooltip:AddLine("Click to view who owes whom", 1, 1, 1)
+		GameTooltip:AddLine("Type '!paid Name Amount' in chat to confirm", 1, 0.8, 0)
+		GameTooltip:Show()
+	end)
+	debtsBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 	-- Close button
 	local closeBtn = CreateFrame("Button", "PhantomGamble_CloseButton", f, "UIPanelCloseButton")
@@ -1022,8 +1433,14 @@ function PhantomGamble_DR_ParseRoll(msg)
 		PhantomGamble["stats"][loser] = (PhantomGamble["stats"][loser] or 0) - DR_GoldWager
 		statsNeedUpdate = true
 		
+		-- Add debt
+		AddDebt(loser, winner, DR_GoldWager)
+		
 		if PhantomGamble_StatsFrame and PhantomGamble_StatsFrame:IsVisible() then
 			RefreshStatsDisplay()
+		end
+		if PhantomGamble_DebtsFrame and PhantomGamble_DebtsFrame:IsVisible() then
+			RefreshDebtsDisplay()
 		end
 		
 		-- Reset
@@ -1150,8 +1567,15 @@ function PhantomGamble_Report()
 		PhantomGamble["stats"][highname] = (PhantomGamble["stats"][highname] or 0) + goldowed
 		PhantomGamble["stats"][lowname] = (PhantomGamble["stats"][lowname] or 0) - goldowed
 		statsNeedUpdate = true
+		
+		-- Add debt
+		AddDebt(lowname, highname, goldowed)
+		
 		if PhantomGamble_StatsFrame and PhantomGamble_StatsFrame:IsVisible() then
 			RefreshStatsDisplay()
+		end
+		if PhantomGamble_DebtsFrame and PhantomGamble_DebtsFrame:IsVisible() then
+			RefreshDebtsDisplay()
 		end
 		ChatMsg(string.format("%s owes %s %d gold.", lowname, highname, goldowed))
 	else
@@ -1256,6 +1680,26 @@ end
 -- ============================================
 
 function PhantomGamble_ParseChatMsg(msg, sender)
+	-- Check for !paid command: "!paid PlayerName Amount"
+	local _, _, paidTo, paidAmount = string.find(msg, "^!paid%s+(%S+)%s+(%d+)")
+	if paidTo and paidAmount then
+		paidAmount = tonumber(paidAmount)
+		if paidAmount and paidAmount > 0 then
+			-- Sender is paying paidTo
+			local success, errMsg = PayDebt(sender, paidTo, paidAmount)
+			if success then
+				ChatMsg(sender .. " paid " .. paidTo .. " " .. paidAmount .. " gold. Debt updated!")
+				Print("", "", "Payment recorded: " .. sender .. " -> " .. paidTo .. " (" .. paidAmount .. "g)")
+				if PhantomGamble_DebtsFrame and PhantomGamble_DebtsFrame:IsVisible() then
+					RefreshDebtsDisplay()
+				end
+			else
+				Print("", "", errMsg or "Could not record payment")
+			end
+		end
+		return
+	end
+	
 	-- Check for Death Roll join
 	if msg == "1" and DR_AcceptingPlayers then
 		PhantomGamble_DR_AddPlayer(sender)
@@ -1284,7 +1728,7 @@ end
 function PhantomGamble_SlashCmd(msg)
 	msg = string.lower(msg or "")
 	if msg == "" then
-		Print("", "", "Commands: show, hide, stats, reset, fullstats, resetstats, minimap, ban, unban, listban")
+		Print("", "", "Commands: show, hide, stats, debts, reset, fullstats, resetstats, resetdebts, minimap, ban, unban, listban")
 		return
 	end
 	if msg == "hide" then
@@ -1296,6 +1740,9 @@ function PhantomGamble_SlashCmd(msg)
 	elseif msg == "stats" then
 		if not PhantomGamble_StatsFrame then CreateStatsWindow() end
 		PhantomGamble_StatsFrame:Show()
+	elseif msg == "debts" then
+		if not PhantomGamble_DebtsFrame then CreateDebtsWindow() end
+		PhantomGamble_DebtsFrame:Show()
 	elseif msg == "reset" then
 		PhantomGamble_Reset()
 		PhantomGamble_DR_Cancel()
@@ -1306,6 +1753,10 @@ function PhantomGamble_SlashCmd(msg)
 		PhantomGamble["stats"] = {}
 		statsNeedUpdate = true
 		Print("", "", "Stats have been reset.")
+	elseif msg == "resetdebts" then
+		PhantomGamble["debts"] = {}
+		debtsNeedUpdate = true
+		Print("", "", "Debts have been reset.")
 	elseif msg == "minimap" then
 		PhantomGamble["minimap"] = not PhantomGamble["minimap"]
 		if PhantomGamble["minimap"] then PG_MinimapButton:Show() else PG_MinimapButton:Hide() end
@@ -1355,8 +1806,13 @@ function PhantomGamble_OnEvent()
 			PhantomGamble = {
 				active = 1, chat = 1, channel = "gambling", whispers = false,
 				strings = {}, lowtie = {}, hightie = {}, bans = {},
-				minimap = true, lastroll = 100, stats = {}, joinstats = {}
+				minimap = true, lastroll = 100, stats = {}, joinstats = {}, debts = {}
 			}
+		end
+		
+		-- Ensure debts table exists for older saves
+		if not PhantomGamble["debts"] then
+			PhantomGamble["debts"] = {}
 		end
 
 		PhantomGamble_EditBox:SetText(tostring(PhantomGamble["lastroll"] or 100))
