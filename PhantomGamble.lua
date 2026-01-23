@@ -645,22 +645,100 @@ local function CreateMainFrame()
 	drStartLabel:SetJustifyH("RIGHT")
 	drStartLabel:SetText("|cffffffffStart:|r")
 
-	-- Starting number editbox
-	local drEditbox = CreateFrame("EditBox", "PhantomGamble_DR_EditBox", f)
-	drEditbox:SetWidth(50)
-	drEditbox:SetHeight(20)
-	drEditbox:SetPoint("TOPLEFT", drStartLabel, "TOPRIGHT", 5, 2)
-	drEditbox:SetFontObject(ChatFontNormal)
-	drEditbox:SetAutoFocus(false)
-	drEditbox:SetNumeric(true)
-	drEditbox:SetMaxLetters(5)
-	drEditbox:SetJustifyH("CENTER")
-	drEditbox:SetScript("OnEscapePressed", function() this:ClearFocus() end)
-	drEditbox:SetScript("OnEnterPressed", function() this:ClearFocus() end)
-
-	local drEditBg = drEditbox:CreateTexture(nil, "BACKGROUND")
-	drEditBg:SetTexture(0.1, 0.1, 0.1, 0.8)
-	drEditBg:SetAllPoints(drEditbox)
+	-- Starting number button (click to show dropdown)
+	local drStartBtn_Select = CreateFrame("Button", "PhantomGamble_DR_StartSelect", f)
+	drStartBtn_Select:SetWidth(60)
+	drStartBtn_Select:SetHeight(20)
+	drStartBtn_Select:SetPoint("LEFT", drStartLabel, "RIGHT", 5, 0)
+	
+	local drStartBtnBg = drStartBtn_Select:CreateTexture(nil, "BACKGROUND")
+	drStartBtnBg:SetTexture(0.1, 0.1, 0.1, 0.8)
+	drStartBtnBg:SetAllPoints(drStartBtn_Select)
+	
+	local drStartBtnText = drStartBtn_Select:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	drStartBtnText:SetPoint("CENTER", drStartBtn_Select, "CENTER", 0, 0)
+	drStartBtnText:SetText("100")
+	
+	local drStartBtnArrow = drStartBtn_Select:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	drStartBtnArrow:SetPoint("RIGHT", drStartBtn_Select, "RIGHT", -3, 0)
+	drStartBtnArrow:SetText("v")
+	
+	drStartBtn_Select:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+	
+	-- Dropdown menu for start values
+	local drStartDropdown = CreateFrame("Frame", "PhantomGamble_DR_StartDropdown", f)
+	drStartDropdown:SetWidth(60)
+	drStartDropdown:SetHeight(110)
+	drStartDropdown:SetPoint("TOP", drStartBtn_Select, "BOTTOM", 0, 0)
+	drStartDropdown:SetFrameStrata("TOOLTIP")
+	drStartDropdown:Hide()
+	
+	local drDropdownBg = drStartDropdown:CreateTexture(nil, "BACKGROUND")
+	drDropdownBg:SetTexture(0, 0, 0, 0.9)
+	drDropdownBg:SetAllPoints(drStartDropdown)
+	
+	local drDropdownBorder = drStartDropdown:CreateTexture(nil, "BORDER")
+	drDropdownBorder:SetTexture(0.5, 0.5, 0.5, 1)
+	drDropdownBorder:SetPoint("TOPLEFT", drStartDropdown, "TOPLEFT", -1, 1)
+	drDropdownBorder:SetPoint("BOTTOMRIGHT", drStartDropdown, "BOTTOMRIGHT", 1, -1)
+	
+	local startOptions = {10, 50, 100, 1000, 10000}
+	local startOptionButtons = {}
+	
+	for i, val in ipairs(startOptions) do
+		local optBtn = CreateFrame("Button", "PhantomGamble_DR_StartOpt"..i, drStartDropdown)
+		optBtn:SetWidth(58)
+		optBtn:SetHeight(20)
+		optBtn:SetPoint("TOP", drStartDropdown, "TOP", 0, -2 - ((i-1) * 21))
+		
+		local optText = optBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		optText:SetPoint("CENTER", optBtn, "CENTER", 0, 0)
+		if val >= 10000 then
+			optText:SetText(string.format("%d,000", val/1000))
+		elseif val >= 1000 then
+			optText:SetText(string.format("%d,000", val/1000))
+		else
+			optText:SetText(tostring(val))
+		end
+		
+		optBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+		optBtn:SetScript("OnClick", function()
+			DR_StartNumber = val
+			if val >= 10000 then
+				drStartBtnText:SetText("10,000")
+			elseif val >= 1000 then
+				drStartBtnText:SetText("1,000")
+			else
+				drStartBtnText:SetText(tostring(val))
+			end
+			PhantomGamble["lastDRStart"] = val
+			drStartDropdown:Hide()
+		end)
+		
+		startOptionButtons[i] = optBtn
+	end
+	
+	drStartBtn_Select:SetScript("OnClick", function()
+		if drStartDropdown:IsVisible() then
+			drStartDropdown:Hide()
+		else
+			drStartDropdown:Show()
+		end
+	end)
+	
+	-- Hide dropdown when clicking elsewhere
+	drStartDropdown:SetScript("OnShow", function()
+		this:SetScript("OnUpdate", function()
+			if not MouseIsOver(drStartDropdown) and not MouseIsOver(drStartBtn_Select) then
+				if IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton") then
+					drStartDropdown:Hide()
+				end
+			end
+		end)
+	end)
+	drStartDropdown:SetScript("OnHide", function()
+		this:SetScript("OnUpdate", nil)
+	end)
 
 	-- Gold wager label
 	local drGoldLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -671,13 +749,13 @@ local function CreateMainFrame()
 
 	-- Gold wager editbox
 	local drGoldEditbox = CreateFrame("EditBox", "PhantomGamble_DR_GoldEditBox", f)
-	drGoldEditbox:SetWidth(50)
+	drGoldEditbox:SetWidth(60)
 	drGoldEditbox:SetHeight(20)
-	drGoldEditbox:SetPoint("TOPLEFT", drGoldLabel, "TOPRIGHT", 5, 2)
+	drGoldEditbox:SetPoint("LEFT", drGoldLabel, "RIGHT", 5, 0)
 	drGoldEditbox:SetFontObject(ChatFontNormal)
 	drGoldEditbox:SetAutoFocus(false)
 	drGoldEditbox:SetNumeric(true)
-	drGoldEditbox:SetMaxLetters(5)
+	drGoldEditbox:SetMaxLetters(6)
 	drGoldEditbox:SetJustifyH("CENTER")
 	drGoldEditbox:SetScript("OnEscapePressed", function() this:ClearFocus() end)
 	drGoldEditbox:SetScript("OnEnterPressed", function() this:ClearFocus() end)
@@ -824,12 +902,10 @@ end
 -- ============================================
 
 function PhantomGamble_DR_Start()
-	local startText = PhantomGamble_DR_EditBox:GetText()
 	local goldText = PhantomGamble_DR_GoldEditBox:GetText()
 	
-	if startText == "" or not tonumber(startText) or tonumber(startText) < 2 then
-		DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Please enter a valid starting number (2 or higher).|r")
-		return
+	if not DR_StartNumber or DR_StartNumber < 2 then
+		DR_StartNumber = 100
 	end
 	
 	if goldText == "" or not tonumber(goldText) or tonumber(goldText) < 1 then
@@ -837,7 +913,6 @@ function PhantomGamble_DR_Start()
 		return
 	end
 	
-	DR_StartNumber = tonumber(startText)
 	DR_GoldWager = tonumber(goldText)
 	DR_CurrentMax = DR_StartNumber
 	DR_Active = false
@@ -1289,7 +1364,24 @@ function PhantomGamble_OnEvent()
 		end
 
 		PhantomGamble_EditBox:SetText(tostring(PhantomGamble["lastroll"] or 100))
-		PhantomGamble_DR_EditBox:SetText(tostring(PhantomGamble["lastDRStart"] or 100))
+		DR_StartNumber = PhantomGamble["lastDRStart"] or 100
+		-- Update the dropdown button text
+		if PhantomGamble_DR_StartSelect then
+			local startText = tostring(DR_StartNumber)
+			if DR_StartNumber >= 10000 then
+				startText = "10,000"
+			elseif DR_StartNumber >= 1000 then
+				startText = "1,000"
+			end
+			local btnText = PhantomGamble_DR_StartSelect:GetRegions()
+			for i = 1, PhantomGamble_DR_StartSelect:GetNumRegions() do
+				local region = select(i, PhantomGamble_DR_StartSelect:GetRegions())
+				if region and region:GetObjectType() == "FontString" and region:GetText() ~= "v" then
+					region:SetText(startText)
+					break
+				end
+			end
+		end
 		PhantomGamble_DR_GoldEditBox:SetText(tostring(PhantomGamble["lastDRGold"] or 100))
 		chatmethod = chatmethods[PhantomGamble["chat"] or 1] or "RAID"
 		PhantomGamble_CHAT_Button:SetText(chatmethod)
