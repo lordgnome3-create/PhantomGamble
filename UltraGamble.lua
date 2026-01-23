@@ -27,6 +27,10 @@ local chatmethods = {
 }
 local chatmethod = chatmethods[1];
 
+UG_Settings = {
+	MinimapPos = 75
+}
+
 -- Create Main Frame in Lua
 local function CreateMainFrame()
 	local f = CreateFrame("Frame", "UltraGambling_Frame", UIParent)
