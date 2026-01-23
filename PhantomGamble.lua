@@ -730,7 +730,7 @@ local function CreateMainFrame()
 	drStartDropdown:SetScript("OnShow", function()
 		this:SetScript("OnUpdate", function()
 			if not MouseIsOver(drStartDropdown) and not MouseIsOver(drStartBtn_Select) then
-				if IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton") then
+				if arg1 and arg1 > 0 then
 					drStartDropdown:Hide()
 				end
 			end
@@ -738,6 +738,13 @@ local function CreateMainFrame()
 	end)
 	drStartDropdown:SetScript("OnHide", function()
 		this:SetScript("OnUpdate", nil)
+	end)
+	
+	-- Close dropdown when mouse leaves area
+	drStartDropdown:SetScript("OnLeave", function()
+		if not MouseIsOver(drStartBtn_Select) then
+			drStartDropdown:Hide()
+		end
 	end)
 
 	-- Gold wager label
@@ -767,7 +774,7 @@ local function CreateMainFrame()
 	local drStartBtn = CreateFrame("Button", "PhantomGamble_DR_StartBtn", f, "GameMenuButtonTemplate")
 	drStartBtn:SetWidth(120)
 	drStartBtn:SetHeight(22)
-	drStartBtn:SetPoint("TOP", drGoldLabel, "BOTTOM", 60, -10)
+	drStartBtn:SetPoint("TOP", rightTitle, "BOTTOM", 0, -75)
 	drStartBtn:SetText("Start Death Roll")
 	drStartBtn:SetScript("OnClick", function() PhantomGamble_DR_Start() end)
 
