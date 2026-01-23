@@ -24,18 +24,47 @@ UG_Settings = { MinimapPos = 75 }
 
 -- Helper function to send chat messages
 local function ChatMsg(msg, chatType, language, channel)
+	if not msg or msg == "" then return end
+	
 	chatType = chatType or chatmethod
-	if chatType == "RAID" and not UnitInRaid("player") then
-		chatType = UnitInParty("player") and "PARTY" or "SAY"
-	elseif chatType == "PARTY" and not UnitInParty("player") then
-		chatType = "SAY"
-	elseif chatType == "GUILD" and not IsInGuild() then
-		chatType = "SAY"
+	
+	-- Validate chat type and fall back if needed
+	if chatType == "RAID" then
+		if not UnitInRaid("player") then
+			if UnitInParty("player") then
+				chatType = "PARTY"
+			elseif IsInGuild() then
+				chatType = "GUILD"
+			else
+				chatType = "SAY"
+			end
+		end
+	elseif chatType == "PARTY" then
+		if not UnitInParty("player") then
+			if IsInGuild() then
+				chatType = "GUILD"
+			else
+				chatType = "SAY"
+			end
+		end
+	elseif chatType == "GUILD" then
+		if not IsInGuild() then
+			if UnitInParty("player") then
+				chatType = "PARTY"
+			else
+				chatType = "SAY"
+			end
+		end
 	end
+	
+	-- Debug output to see what's being sent
+	-- DEFAULT_CHAT_FRAME:AddMessage("DEBUG: Sending to " .. chatType .. ": " .. msg)
+	
+	-- Send the message - use pcall to catch any errors
 	if chatType == "CHANNEL" and channel then
-		SendChatMessage(msg, chatType, language, channel)
+		SendChatMessage(msg, chatType, nil, channel)
 	else
-		SendChatMessage(msg, chatType, language)
+		SendChatMessage(msg, chatType)
 	end
 end
 
@@ -390,7 +419,7 @@ function UltraGambling_OnClickACCEPTONES()
 		UltraGambling_ROLL_Button:Disable()
 		UltraGambling_LASTCALL_Button:Disable()
 		AcceptOnes = "true"
-		ChatMsg(string.format(".:Welcome to UltraGamble:. Roll Amount - (%s) - Type 1 to Join (-1 to withdraw)", editText))
+		ChatMsg("Welcome to UltraGamble! Roll Amount: " .. editText .. " gold. Type 1 to Join or -1 to withdraw.")
 		UltraGambling["lastroll"] = editText
 		theMax = tonumber(editText)
 		low = theMax + 1
