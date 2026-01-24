@@ -912,8 +912,12 @@ local function CreateMainFrame()
 	titleBg:SetPoint("TOPRIGHT", f, "TOPRIGHT", -2, -2)
 
 	local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	title:SetPoint("TOP", f, "TOP", 0, -8)
+	title:SetPoint("TOPLEFT", f, "TOPLEFT", 52, -8)
 	title:SetText("|cffFFD700PhantomGamble|r")
+	
+	local disclaimer = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	disclaimer:SetPoint("LEFT", title, "RIGHT", 8, 0)
+	disclaimer:SetText("|cffff6666(Bilgewater Cartel cities only: Ratchet, Booty Bay, Everlook, Gadgetzan)|r")
 
 	f:SetScript("OnMouseDown", function()
 		if arg1 == "LeftButton" then this:StartMoving() end
