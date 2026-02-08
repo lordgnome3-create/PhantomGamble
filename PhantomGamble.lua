@@ -719,7 +719,7 @@ local function CreateStatsWindow()
 	local b5 = CreateFrame("Button","PhantomGamble_StatsLastBtn",f,"GameMenuButtonTemplate"); b5:SetWidth(45); b5:SetHeight(bh); b5:SetPoint("LEFT",b4,"RIGHT",bs,0); b5:SetText("Last"); b5:SetScript("OnClick", function() ReportStats(1,true) end)
 	local rb = CreateFrame("Button","PhantomGamble_StatsResetBtn",f,"GameMenuButtonTemplate"); rb:SetWidth(80); rb:SetHeight(bh); rb:SetPoint("BOTTOM",f,"BOTTOM",0,10); rb:SetText("Reset Stats"); rb:SetScript("OnClick", function() PhantomGamble["stats"]={}; statsNeedUpdate=true; RefreshStatsDisplay(); Print("","","Stats have been reset.") end)
 	local rz = CreateFrame("Button",nil,f); rz:SetWidth(16); rz:SetHeight(16); rz:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-2,2); rz:EnableMouse(true)
-	local rzt = rz:CreateTexture(nil,"OVERLAY"); rzt:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up"); rzt:SetAllPoints(rz)
+	local rzt = rz:CreateTexture(nil,"OVERLAY"); rzt:SetTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Up"); rzt:SetAllPoints(rz)
 	rz:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
 	rz:SetScript("OnMouseUp", function() f:StopMovingOrSizing(); UpdateStatsWindowLayout(); PhantomGamble_StatsScrollChild:SetWidth(PhantomGamble_StatsScrollFrame:GetWidth()); RefreshStatsDisplay() end)
 	rz:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_TOPLEFT"); GameTooltip:SetText("Drag to resize"); GameTooltip:Show() end)
@@ -761,7 +761,7 @@ local function CreateDebtsWindow()
 	local rpb = CreateFrame("Button",nil,f,"GameMenuButtonTemplate"); rpb:SetWidth(100); rpb:SetHeight(20); rpb:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",10,10); rpb:SetText("Report Debts"); rpb:SetScript("OnClick", function() ReportDebts() end)
 	local clb = CreateFrame("Button",nil,f,"GameMenuButtonTemplate"); clb:SetWidth(100); clb:SetHeight(20); clb:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-25,10); clb:SetText("Clear All Debts"); clb:SetScript("OnClick", function() PhantomGamble["debts"]={}; debtsNeedUpdate=true; RefreshDebtsDisplay(); Print("","","All debts cleared.") end)
 	local rz = CreateFrame("Button",nil,f); rz:SetWidth(16); rz:SetHeight(16); rz:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-2,2); rz:EnableMouse(true)
-	local rzt = rz:CreateTexture(nil,"OVERLAY"); rzt:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up"); rzt:SetAllPoints(rz)
+	local rzt = rz:CreateTexture(nil,"OVERLAY"); rzt:SetTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Up"); rzt:SetAllPoints(rz)
 	rz:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
 	rz:SetScript("OnMouseUp", function() f:StopMovingOrSizing(); PhantomGamble_DebtsScrollChild:SetWidth(PhantomGamble_DebtsScrollFrame:GetWidth()); RefreshDebtsDisplay() end)
 	rz:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_TOPLEFT"); GameTooltip:SetText("Drag to resize"); GameTooltip:Show() end)
@@ -782,18 +782,19 @@ local function ShowMode(mode)
 	for _,n in ipairs(regEls) do local fr=getglobal(n); if fr then fr:Hide() end end
 	for _,n in ipairs(drEls) do local fr=getglobal(n); if fr then fr:Hide() end end
 	for _,n in ipairs(trEls) do local fr=getglobal(n); if fr then fr:Hide() end end
+	if PhantomGamble_ModeDropdown then PhantomGamble_ModeDropdown:Hide() end
 	if mode == 1 then
 		for _,n in ipairs(regEls) do local fr=getglobal(n); if fr then fr:Show() end end
-		if PhantomGamble_ModeBtnText then PhantomGamble_ModeBtnText:SetText("|cff00ff00R|r") end
+		if PhantomGamble_ModeBtnText then PhantomGamble_ModeBtnText:SetText("|cff00ff00Regular Gamble|r") end
 	elseif mode == 2 then
 		for _,n in ipairs(drEls) do local fr=getglobal(n); if fr then fr:Show() end end
 		if PhantomGamble_DR_StartDropdown then PhantomGamble_DR_StartDropdown:Hide() end
-		if PhantomGamble_ModeBtnText then PhantomGamble_ModeBtnText:SetText("|cffff0000D|r") end
+		if PhantomGamble_ModeBtnText then PhantomGamble_ModeBtnText:SetText("|cffff0000Death Roll|r") end
 	elseif mode == 3 then
 		for _,n in ipairs(trEls) do local fr=getglobal(n); if fr then fr:Show() end end
 		if PhantomGamble_TR_ExpDropdown then PhantomGamble_TR_ExpDropdown:Hide() end
 		if PhantomGamble_TR_RoundsDropdown then PhantomGamble_TR_RoundsDropdown:Hide() end
-		if PhantomGamble_ModeBtnText then PhantomGamble_ModeBtnText:SetText("|cffffff00T|r") end
+		if PhantomGamble_ModeBtnText then PhantomGamble_ModeBtnText:SetText("|cffffff00Trivia|r") end
 	end
 end
 
@@ -802,9 +803,9 @@ end
 -- ============================================
 local function CreateMainFrame()
 	local f = CreateFrame("Frame","PhantomGamble_Frame",UIParent)
-	f:SetWidth(260); f:SetHeight(280); f:SetPoint("CENTER",UIParent,"CENTER",0,0)
+	f:SetWidth(290); f:SetHeight(280); f:SetPoint("CENTER",UIParent,"CENTER",0,0)
 	f:SetMovable(true); f:SetResizable(true); f:EnableMouse(true); f:SetFrameStrata("DIALOG")
-	f:SetMinResize(240,260); f:SetMaxResize(400,400)
+	f:SetMinResize(270,260); f:SetMaxResize(450,400)
 	local bg = f:CreateTexture(nil,"BACKGROUND"); bg:SetTexture(0,0,0,0.85); bg:SetAllPoints(f)
 	for _,side in ipairs({"TOP","BOTTOM","LEFT","RIGHT"}) do
 		local b = f:CreateTexture(nil,"BORDER"); b:SetTexture(0.6,0.6,0.6,1)
@@ -821,7 +822,7 @@ local function CreateMainFrame()
 	-- Warning button
 	local wb = CreateFrame("Button","PhantomGamble_WarningButton",f); wb:SetWidth(60); wb:SetHeight(16); wb:SetPoint("LEFT",title,"RIGHT",8,0)
 	local wbt = wb:CreateFontString(nil,"OVERLAY","GameFontNormalSmall"); wbt:SetPoint("LEFT",wb,"LEFT",0,0); wbt:SetText("|cffff0000[Warning]|r")
-	wb:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+	wb:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
 	wb:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_BOTTOM"); GameTooltip:SetText("|cffff0000Gambling Restriction|r"); GameTooltip:AddLine("Bilgewater Cartel cities only:",1,0.82,0); GameTooltip:AddLine("Ratchet, Booty Bay, Everlook, Gadgetzan",0.5,1,0.5); GameTooltip:Show() end)
 	wb:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	wb:SetScript("OnClick", function() DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[PhantomGamble Warning]|r Bilgewater Cartel cities only: |cff00ff00Ratchet, Booty Bay, Everlook, Gadgetzan|r") end)
@@ -833,7 +834,7 @@ local function CreateMainFrame()
 	local sb = CreateFrame("Button","PhantomGamble_StatsButton",f); sb:SetWidth(20); sb:SetHeight(20); sb:SetPoint("TOPLEFT",f,"TOPLEFT",5,-5)
 	local sbbg = sb:CreateTexture(nil,"BACKGROUND"); sbbg:SetTexture(0.3,0.3,0.5,1); sbbg:SetAllPoints(sb)
 	local sbt = sb:CreateFontString(nil,"OVERLAY","GameFontNormalSmall"); sbt:SetPoint("CENTER",sb,"CENTER",0,0); sbt:SetText("|cffFFD700S|r")
-	sb:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+	sb:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
 	sb:SetScript("OnClick", function() if not PhantomGamble_StatsFrame then CreateStatsWindow() end; if PhantomGamble_StatsFrame:IsVisible() then PhantomGamble_StatsFrame:Hide() else PhantomGamble_StatsFrame:Show() end end)
 	sb:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_RIGHT"); GameTooltip:SetText("Gambling Stats"); GameTooltip:Show() end)
 	sb:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -842,22 +843,44 @@ local function CreateMainFrame()
 	local db = CreateFrame("Button","PhantomGamble_DebtsButton",f); db:SetWidth(20); db:SetHeight(20); db:SetPoint("LEFT",sb,"RIGHT",3,0)
 	local dbbg = db:CreateTexture(nil,"BACKGROUND"); dbbg:SetTexture(0.5,0.3,0.3,1); dbbg:SetAllPoints(db)
 	local dbt = db:CreateFontString(nil,"OVERLAY","GameFontNormalSmall"); dbt:SetPoint("CENTER",db,"CENTER",0,0); dbt:SetText("|cffFF6600D|r")
-	db:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+	db:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
 	db:SetScript("OnClick", function() if not PhantomGamble_DebtsFrame then CreateDebtsWindow() end; if PhantomGamble_DebtsFrame:IsVisible() then PhantomGamble_DebtsFrame:Hide() else PhantomGamble_DebtsFrame:Show() end end)
 	db:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_RIGHT"); GameTooltip:SetText("Outstanding Debts"); GameTooltip:Show() end)
 	db:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-	-- Mode toggle button
-	local mb = CreateFrame("Button","PhantomGamble_ModeBtn",f); mb:SetWidth(20); mb:SetHeight(20); mb:SetPoint("RIGHT",f,"TOPRIGHT",-26,-14)
-	local mbbg = mb:CreateTexture(nil,"BACKGROUND"); mbbg:SetTexture(0.3,0.4,0.3,1); mbbg:SetAllPoints(mb)
-	local mbt = mb:CreateFontString("PhantomGamble_ModeBtnText","OVERLAY","GameFontNormalSmall"); mbt:SetPoint("CENTER",mb,"CENTER",0,0); mbt:SetText("|cff00ff00R|r")
-	mb:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
-	mb:SetScript("OnClick", function() currentMode = currentMode + 1; if currentMode > 3 then currentMode = 1 end; ShowMode(currentMode) end)
-	mb:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_LEFT"); GameTooltip:SetText("|cffFFD700Switch Mode|r"); GameTooltip:AddLine("Current: "..modeNames[currentMode],1,1,1); GameTooltip:AddLine("Click: Regular > Death Roll > Trivia",0.7,0.7,0.7); GameTooltip:Show() end)
-	mb:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-	-- Close button
+	-- Close button (created first so we can anchor mode selector relative to it)
 	local xb = CreateFrame("Button","PhantomGamble_CloseButton",f,"UIPanelCloseButton"); xb:SetPoint("TOPRIGHT",f,"TOPRIGHT",-2,-2); xb:SetScript("OnClick", function() PhantomGamble_SlashCmd("hide") end)
+
+	-- Mode selector dropdown button (to the left of close button)
+	local mb = CreateFrame("Button","PhantomGamble_ModeBtn",f); mb:SetWidth(90); mb:SetHeight(18); mb:SetPoint("RIGHT",xb,"LEFT",-4,0)
+	local mbbg = mb:CreateTexture(nil,"BACKGROUND"); mbbg:SetTexture(0.15,0.15,0.15,0.9); mbbg:SetAllPoints(mb)
+	-- Border for mode button
+	local mbBorderT = mb:CreateTexture(nil,"BORDER"); mbBorderT:SetTexture(0.5,0.5,0.5,1); mbBorderT:SetHeight(1); mbBorderT:SetPoint("TOPLEFT",mb,"TOPLEFT",0,0); mbBorderT:SetPoint("TOPRIGHT",mb,"TOPRIGHT",0,0)
+	local mbBorderB = mb:CreateTexture(nil,"BORDER"); mbBorderB:SetTexture(0.5,0.5,0.5,1); mbBorderB:SetHeight(1); mbBorderB:SetPoint("BOTTOMLEFT",mb,"BOTTOMLEFT",0,0); mbBorderB:SetPoint("BOTTOMRIGHT",mb,"BOTTOMRIGHT",0,0)
+	local mbBorderL = mb:CreateTexture(nil,"BORDER"); mbBorderL:SetTexture(0.5,0.5,0.5,1); mbBorderL:SetWidth(1); mbBorderL:SetPoint("TOPLEFT",mb,"TOPLEFT",0,0); mbBorderL:SetPoint("BOTTOMLEFT",mb,"BOTTOMLEFT",0,0)
+	local mbBorderR = mb:CreateTexture(nil,"BORDER"); mbBorderR:SetTexture(0.5,0.5,0.5,1); mbBorderR:SetWidth(1); mbBorderR:SetPoint("TOPRIGHT",mb,"TOPRIGHT",0,0); mbBorderR:SetPoint("BOTTOMRIGHT",mb,"BOTTOMRIGHT",0,0)
+	local mbt = mb:CreateFontString("PhantomGamble_ModeBtnText","OVERLAY","GameFontHighlightSmall"); mbt:SetPoint("CENTER",mb,"CENTER",-6,0); mbt:SetText("|cff00ff00Regular Gamble|r")
+	local mba = mb:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); mba:SetPoint("RIGHT",mb,"RIGHT",-3,0); mba:SetText("v")
+	mb:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
+
+	-- Mode dropdown
+	local modeDD = CreateFrame("Frame","PhantomGamble_ModeDropdown",f); modeDD:SetWidth(90); modeDD:SetHeight(56); modeDD:SetPoint("TOP",mb,"BOTTOM",0,0); modeDD:SetFrameStrata("TOOLTIP"); modeDD:Hide()
+	local modeDDBg = modeDD:CreateTexture(nil,"BACKGROUND"); modeDDBg:SetTexture(0,0,0,0.95); modeDDBg:SetAllPoints(modeDD)
+	local modeDDBorderT = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderT:SetTexture(0.5,0.5,0.5,1); modeDDBorderT:SetHeight(1); modeDDBorderT:SetPoint("TOPLEFT",modeDD,"TOPLEFT",-1,0); modeDDBorderT:SetPoint("TOPRIGHT",modeDD,"TOPRIGHT",1,0)
+	local modeDDBorderB = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderB:SetTexture(0.5,0.5,0.5,1); modeDDBorderB:SetHeight(1); modeDDBorderB:SetPoint("BOTTOMLEFT",modeDD,"BOTTOMLEFT",-1,0); modeDDBorderB:SetPoint("BOTTOMRIGHT",modeDD,"BOTTOMRIGHT",1,0)
+	local modeDDBorderL = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderL:SetTexture(0.5,0.5,0.5,1); modeDDBorderL:SetWidth(1); modeDDBorderL:SetPoint("TOPLEFT",modeDD,"TOPLEFT",-1,0); modeDDBorderL:SetPoint("BOTTOMLEFT",modeDD,"BOTTOMLEFT",-1,0)
+	local modeDDBorderR = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderR:SetTexture(0.5,0.5,0.5,1); modeDDBorderR:SetWidth(1); modeDDBorderR:SetPoint("TOPRIGHT",modeDD,"TOPRIGHT",1,0); modeDDBorderR:SetPoint("BOTTOMRIGHT",modeDD,"BOTTOMRIGHT",1,0)
+
+	local modeColors = { "|cff00ff00", "|cffff0000", "|cffffff00" }
+	for i, modeName in ipairs(modeNames) do
+		local optBtn = CreateFrame("Button","PhantomGamble_ModeOpt"..i,modeDD); optBtn:SetWidth(88); optBtn:SetHeight(17); optBtn:SetPoint("TOP",modeDD,"TOP",0,-1-((i-1)*18))
+		local optText = optBtn:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); optText:SetPoint("CENTER",optBtn,"CENTER",0,0); optText:SetText(modeColors[i]..modeName.."|r")
+		optBtn:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight"); optBtn.modeIndex = i
+		optBtn:SetScript("OnClick", function() currentMode = this.modeIndex; ShowMode(currentMode); modeDD:Hide() end)
+	end
+	mb:SetScript("OnClick", function() if modeDD:IsVisible() then modeDD:Hide() else modeDD:Show() end end)
+	mb:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_LEFT"); GameTooltip:SetText("|cffFFD700Game Mode|r"); GameTooltip:AddLine("Select which game to play",0.7,0.7,0.7); GameTooltip:Show() end)
+	mb:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 	local cTop = -30
 
@@ -883,7 +906,7 @@ local function CreateMainFrame()
 	local dssbg = dss:CreateTexture(nil,"BACKGROUND"); dssbg:SetTexture(0.1,0.1,0.1,0.8); dssbg:SetAllPoints(dss)
 	local dsst = dss:CreateFontString("PhantomGamble_DR_StartSelectText","OVERLAY","GameFontHighlightSmall"); dsst:SetPoint("CENTER",dss,"CENTER",-5,0); dsst:SetText("100")
 	local dssa = dss:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); dssa:SetPoint("RIGHT",dss,"RIGHT",-3,0); dssa:SetText("v")
-	dss:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+	dss:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
 	local dsdd = CreateFrame("Frame","PhantomGamble_DR_StartDropdown",f); dsdd:SetWidth(70); dsdd:SetHeight(110); dsdd:SetPoint("TOP",dss,"BOTTOM",0,0); dsdd:SetFrameStrata("TOOLTIP"); dsdd:Hide()
 	local dsddbg = dsdd:CreateTexture(nil,"BACKGROUND"); dsddbg:SetTexture(0,0,0,0.9); dsddbg:SetAllPoints(dsdd)
 	local startOpts = {10,50,100,1000,10000}
@@ -891,7 +914,7 @@ local function CreateMainFrame()
 		local ob = CreateFrame("Button","PhantomGamble_DR_StartOpt"..i,dsdd); ob:SetWidth(68); ob:SetHeight(20); ob:SetPoint("TOP",dsdd,"TOP",0,-2-((i-1)*21))
 		local ot = ob:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); ot:SetPoint("CENTER",ob,"CENTER",0,0)
 		if val>=10000 then ot:SetText("10,000") elseif val>=1000 then ot:SetText("1,000") else ot:SetText(tostring(val)) end
-		ob:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight"); ob.value=val
+		ob:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight"); ob.value=val
 		ob:SetScript("OnClick", function() DR_StartNumber=this.value; local dt; if this.value>=10000 then dt="10,000" elseif this.value>=1000 then dt="1,000" else dt=tostring(this.value) end; PhantomGamble_DR_StartSelectText:SetText(dt); PhantomGamble["lastDRStart"]=this.value; dsdd:Hide() end)
 	end
 	dss:SetScript("OnClick", function() if dsdd:IsVisible() then dsdd:Hide() else dsdd:Show() end end)
@@ -915,14 +938,14 @@ local function CreateMainFrame()
 	local tesbg = tes:CreateTexture(nil,"BACKGROUND"); tesbg:SetTexture(0.1,0.1,0.1,0.8); tesbg:SetAllPoints(tes)
 	local test = tes:CreateFontString("PhantomGamble_TR_ExpSelectText","OVERLAY","GameFontHighlightSmall"); test:SetPoint("CENTER",tes,"CENTER",-5,0); test:SetText("All")
 	local tesa = tes:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); tesa:SetPoint("RIGHT",tes,"RIGHT",-3,0); tesa:SetText("v")
-	tes:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+	tes:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
 
 	local tedd = CreateFrame("Frame","PhantomGamble_TR_ExpDropdown",f); tedd:SetWidth(140); tedd:SetHeight(table.getn(TriviaExpansions)*18+4); tedd:SetPoint("TOP",tes,"BOTTOM",0,0); tedd:SetFrameStrata("TOOLTIP"); tedd:Hide()
 	local teddbg = tedd:CreateTexture(nil,"BACKGROUND"); teddbg:SetTexture(0,0,0,0.95); teddbg:SetAllPoints(tedd)
 	for i,expName in ipairs(TriviaExpansions) do
 		local ob = CreateFrame("Button","PhantomGamble_TR_ExpOpt"..i,tedd); ob:SetWidth(138); ob:SetHeight(17); ob:SetPoint("TOP",tedd,"TOP",0,-2-((i-1)*18))
 		local ot = ob:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); ot:SetPoint("LEFT",ob,"LEFT",5,0); ot:SetText(expName)
-		ob:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight"); ob.value=expName
+		ob:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight"); ob.value=expName
 		ob:SetScript("OnClick", function() TR_SelectedExpansion=this.value; PhantomGamble_TR_ExpSelectText:SetText(this.value); tedd:Hide() end)
 	end
 	tes:SetScript("OnClick", function() if tedd:IsVisible() then tedd:Hide() else tedd:Show(); if PhantomGamble_TR_RoundsDropdown then PhantomGamble_TR_RoundsDropdown:Hide() end end end)
@@ -933,7 +956,7 @@ local function CreateMainFrame()
 	local trsbg = trs:CreateTexture(nil,"BACKGROUND"); trsbg:SetTexture(0.1,0.1,0.1,0.8); trsbg:SetAllPoints(trs)
 	local trst = trs:CreateFontString("PhantomGamble_TR_RoundsSelectText","OVERLAY","GameFontHighlightSmall"); trst:SetPoint("CENTER",trs,"CENTER",-5,0); trst:SetText("5")
 	local trsa = trs:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); trsa:SetPoint("RIGHT",trs,"RIGHT",-3,0); trsa:SetText("v")
-	trs:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+	trs:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
 
 	local roundOpts = {3,5,10,15,20}
 	local trdd = CreateFrame("Frame","PhantomGamble_TR_RoundsDropdown",f); trdd:SetWidth(50); trdd:SetHeight(table.getn(roundOpts)*20+4); trdd:SetPoint("TOP",trs,"BOTTOM",0,0); trdd:SetFrameStrata("TOOLTIP"); trdd:Hide()
@@ -941,7 +964,7 @@ local function CreateMainFrame()
 	for i,val in ipairs(roundOpts) do
 		local ob = CreateFrame("Button","PhantomGamble_TR_RoundsOpt"..i,trdd); ob:SetWidth(48); ob:SetHeight(18); ob:SetPoint("TOP",trdd,"TOP",0,-2-((i-1)*20))
 		local ot = ob:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); ot:SetPoint("CENTER",ob,"CENTER",0,0); ot:SetText(tostring(val))
-		ob:SetHighlightTexture("Interface\\Buttons\\UI-Panel-Button-Highlight"); ob.value=val
+		ob:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight"); ob.value=val
 		ob:SetScript("OnClick", function() TR_TotalRounds=this.value; PhantomGamble_TR_RoundsSelectText:SetText(tostring(this.value)); trdd:Hide() end)
 	end
 	trs:SetScript("OnClick", function() if trdd:IsVisible() then trdd:Hide() else trdd:Show(); tedd:Hide() end end)
@@ -967,7 +990,7 @@ local function CreateMainFrame()
 
 	-- Resize grip
 	local rz = CreateFrame("Button","PhantomGamble_ResizeButton",f); rz:SetWidth(16); rz:SetHeight(16); rz:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-2,2); rz:EnableMouse(true)
-	local rzt = rz:CreateTexture(nil,"OVERLAY"); rzt:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up"); rzt:SetAllPoints(rz)
+	local rzt = rz:CreateTexture(nil,"OVERLAY"); rzt:SetTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Up"); rzt:SetAllPoints(rz)
 	rz:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
 	rz:SetScript("OnMouseUp", function() f:StopMovingOrSizing() end)
 	rz:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_TOPLEFT"); GameTooltip:SetText("Drag to resize"); GameTooltip:Show() end)
@@ -984,9 +1007,9 @@ end
 local function CreateMinimapButton()
 	local btn = CreateFrame("Button","PG_MinimapButton",Minimap); btn:SetWidth(32); btn:SetHeight(32); btn:SetFrameStrata("MEDIUM"); btn:SetFrameLevel(8); btn:EnableMouse(true)
 	btn:RegisterForClicks("LeftButtonUp","RightButtonUp"); btn:RegisterForDrag("LeftButton")
-	btn:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
-	local icon = btn:CreateTexture(nil,"BACKGROUND"); icon:SetWidth(20); icon:SetHeight(20); icon:SetTexture("Interface\\Icons\\INV_Misc_Coin_01"); icon:SetPoint("CENTER",btn,"CENTER",0,0)
-	local border = btn:CreateTexture(nil,"OVERLAY"); border:SetWidth(52); border:SetHeight(52); border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder"); border:SetPoint("TOPLEFT",btn,"TOPLEFT",0,0)
+	btn:SetHighlightTexture("Interface/Minimap/UI-Minimap-ZoomButton-Highlight")
+	local icon = btn:CreateTexture(nil,"BACKGROUND"); icon:SetWidth(20); icon:SetHeight(20); icon:SetTexture("Interface/Icons/INV_Misc_Coin_01"); icon:SetPoint("CENTER",btn,"CENTER",0,0)
+	local border = btn:CreateTexture(nil,"OVERLAY"); border:SetWidth(52); border:SetHeight(52); border:SetTexture("Interface/Minimap/MiniMap-TrackingBorder"); border:SetPoint("TOPLEFT",btn,"TOPLEFT",0,0)
 	btn:SetScript("OnClick", function() PG_MinimapButton_OnClick() end)
 	btn:SetScript("OnDragStart", function() this:LockHighlight(); this:SetScript("OnUpdate", PG_MinimapButton_DraggingFrame_OnUpdate) end)
 	btn:SetScript("OnDragStop", function() this:SetScript("OnUpdate",nil); this:UnlockHighlight() end)
