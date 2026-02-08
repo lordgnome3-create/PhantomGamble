@@ -66,7 +66,7 @@ local TR_TimerActive = false
 local TR_AnswerTimeout = 30
 local TR_SelectedExpansion = "All"
 local TR_UsedQuestions = {}
-local TR_PointValues = { 5, 3, 2, 1 }
+local TR_PointsPerQuestion = 5
 
 -- ============================================
 -- TRIVIA QUESTION DATABASE
@@ -579,15 +579,14 @@ end
 
 local function TR_AwardPoints()
 	local num = table.getn(TR_AnswerOrder)
-	if num == 0 then ChatMsg("Nobody answered correctly!"); return end
-	local results = "Correct answers: "
-	for i, name in ipairs(TR_AnswerOrder) do
-		local pts = TR_PointValues[i] or 1
-		TR_Scores[name] = (TR_Scores[name] or 0) + pts
-		if i > 1 then results = results .. ", " end
-		results = results .. name .. " (+" .. pts .. "pts)"
+	if num == 0 then 
+		ChatMsg("Nobody answered correctly!") 
+		return 
 	end
-	ChatMsg(results)
+	-- Only award points to first person
+	local winner = TR_AnswerOrder[1]
+	TR_Scores[winner] = (TR_Scores[winner] or 0) + TR_PointsPerQuestion
+	ChatMsg(winner .. " answered first! (+" .. TR_PointsPerQuestion .. " pts)")
 end
 
 local function TR_ReportScores()
@@ -670,15 +669,19 @@ end
 
 function PhantomGamble_TR_ParseChat(msg, sender)
 	if not TR_Active or not TR_WaitingForAnswers then return end
+	-- Check if this person already answered
 	for _, name in ipairs(TR_AnswerOrder) do
 		if string.lower(name) == string.lower(sender) then return end
 	end
+	-- Check if answer is correct
 	if TR_CheckAnswer(msg) then
 		table.insert(TR_AnswerOrder, sender)
-		local pos = table.getn(TR_AnswerOrder)
-		local pts = TR_PointValues[pos] or 1
-		if whispermethod then SendChatMessage("Correct! You're #"..pos.." (+"..pts.." pts)", "WHISPER", nil, sender) end
-		Print("", "", sender.." answered correctly! (#"..pos..", +"..pts.." pts)")
+		if whispermethod then 
+			SendChatMessage("Correct! You win " .. TR_PointsPerQuestion .. " pts!", "WHISPER", nil, sender) 
+		end
+		Print("", "", sender .. " answered correctly first!")
+		-- End the round immediately
+		TR_EndRound()
 	end
 end
 
