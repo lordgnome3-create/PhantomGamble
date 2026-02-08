@@ -572,7 +572,7 @@ end
 local function TR_UpdateStatus()
 	if not PhantomGamble_TR_Status then return end
 	if not TR_Active then PhantomGamble_TR_Status:SetText("|cffffff00Waiting...|r"); return end
-	local t = string.format("|cffffff00Round %d/%d|r", TR_CurrentRound, TR_TotalRounds)
+	local t = "|cffffff00Round "..tostring(TR_CurrentRound).."/"..tostring(TR_TotalRounds).."|r"
 	if TR_WaitingForAnswers then t = t .. "\n|cff00ff00Waiting for answers...|r" end
 	PhantomGamble_TR_Status:SetText(t)
 end
@@ -586,7 +586,8 @@ local function TR_AwardPoints()
 	-- Only award points to first person
 	local winner = TR_AnswerOrder[1]
 	TR_Scores[winner] = (TR_Scores[winner] or 0) + TR_PointsPerQuestion
-	ChatMsg(winner .. " answered first! (+" .. TR_PointsPerQuestion .. " pts)")
+	local msg = winner.." answered first! (+"..tostring(TR_PointsPerQuestion).." pts)"
+	ChatMsg(msg)
 end
 
 local function TR_ReportScores()
@@ -595,12 +596,15 @@ local function TR_ReportScores()
 	for name, score in pairs(TR_Scores) do table.insert(sorted, { name=name, score=score }) end
 	table.sort(sorted, function(a,b) return a.score > b.score end)
 	ChatMsg("--- Trivia Scores ---")
-	for i, entry in ipairs(sorted) do ChatMsg(string.format("%d. %s: %d pts", i, entry.name, entry.score)) end
+	for i, entry in ipairs(sorted) do 
+		local msg = tostring(i)..". "..entry.name..": "..tostring(entry.score).." pts"
+		ChatMsg(msg)
+	end
 end
 
 function TR_EndGame()
 	TR_Active = false; TR_WaitingForAnswers = false; TR_TimerActive = false
-	ChatMsg("=== TRIVIA GAME OVER! ===")
+	ChatMsg("TRIVIA GAME OVER!")
 	TR_ReportScores()
 	if TR_GoldWager > 0 and next(TR_Scores) then
 		local sorted = {}
@@ -610,7 +614,8 @@ function TR_EndGame()
 			local winner = sorted[1]; local loser = sorted[table.getn(sorted)]
 			winner.name = string.upper(string.sub(winner.name,1,1))..string.sub(winner.name,2)
 			loser.name = string.upper(string.sub(loser.name,1,1))..string.sub(loser.name,2)
-			ChatMsg(loser.name.." (last place) owes "..winner.name.." (1st place) "..TR_GoldWager.." gold!")
+			local msg = loser.name.." (last place) owes "..winner.name.." (1st place) "..tostring(TR_GoldWager).." gold!"
+			ChatMsg(msg)
 			PhantomGamble["stats"][winner.name] = (PhantomGamble["stats"][winner.name] or 0) + TR_GoldWager
 			PhantomGamble["stats"][loser.name] = (PhantomGamble["stats"][loser.name] or 0) - TR_GoldWager
 			statsNeedUpdate = true; AddDebt(loser.name, winner.name, TR_GoldWager)
@@ -627,7 +632,8 @@ end
 
 local function TR_EndRound()
 	TR_WaitingForAnswers = false; TR_TimerActive = false
-	ChatMsg("Time's up! The answer was: " .. TR_CurrentAnswer)
+	local msg = "Time's up! The answer was: "..TR_CurrentAnswer
+	ChatMsg(msg)
 	TR_AwardPoints()
 	TR_CurrentQuestion = nil; TR_CurrentAnswer = nil; TR_CurrentAltAnswers = nil; TR_AnswerOrder = {}
 	TR_UpdateStatus()
@@ -640,8 +646,9 @@ function PhantomGamble_TR_Start()
 	TR_GoldWager = (goldText ~= "" and tonumber(goldText)) and tonumber(goldText) or 0
 	TR_Active = true; TR_CurrentRound = 0; TR_Scores = {}; TR_UsedQuestions = {}; TR_AnswerOrder = {}; TR_WaitingForAnswers = false
 	PhantomGamble["lastTRGold"] = TR_GoldWager; PhantomGamble["lastTRRounds"] = TR_TotalRounds; PhantomGamble["lastTRExpansion"] = TR_SelectedExpansion
-	local wt = TR_GoldWager > 0 and (TR_GoldWager.." gold wager") or "No gold wager"
-	ChatMsg("=== PhantomGamble TRIVIA! === "..TR_TotalRounds.." rounds | "..TR_SelectedExpansion.." | "..wt.." | Answer in chat!")
+	local wt = TR_GoldWager > 0 and tostring(TR_GoldWager).." gold wager" or "No gold wager"
+	local msg = "PhantomGamble TRIVIA! "..tostring(TR_TotalRounds).." rounds - "..TR_SelectedExpansion.." - "..wt.." - Answer in chat!"
+	ChatMsg(msg)
 	PhantomGamble_TR_StartBtn:SetText("In Progress..."); PhantomGamble_TR_StartBtn:Disable()
 	PhantomGamble_TR_AskBtn:Enable(); PhantomGamble_TR_CancelBtn:Enable()
 	TR_UpdateStatus()
@@ -655,7 +662,8 @@ function PhantomGamble_TR_AskQuestion()
 	if not picked then Print("","","No questions available!"); TR_EndGame(); return end
 	TR_CurrentQuestion = picked.question.q; TR_CurrentAnswer = picked.question.a; TR_CurrentAltAnswers = picked.question.alt
 	TR_AnswerOrder = {}; TR_WaitingForAnswers = true; TR_QuestionTimer = TR_AnswerTimeout; TR_TimerActive = true
-	ChatMsg(string.format("[Round %d/%d] (%s) %s", TR_CurrentRound, TR_TotalRounds, picked.expansion, TR_CurrentQuestion))
+	local msg = "[Round "..tostring(TR_CurrentRound).."/"..tostring(TR_TotalRounds).."] ("..picked.expansion..") "..TR_CurrentQuestion
+	ChatMsg(msg)
 	PhantomGamble_TR_AskBtn:Disable(); TR_UpdateStatus()
 end
 
@@ -677,7 +685,8 @@ function PhantomGamble_TR_ParseChat(msg, sender)
 	if TR_CheckAnswer(msg) then
 		table.insert(TR_AnswerOrder, sender)
 		if whispermethod then 
-			SendChatMessage("Correct! You win " .. TR_PointsPerQuestion .. " pts!", "WHISPER", nil, sender) 
+			local wmsg = "Correct! You win "..tostring(TR_PointsPerQuestion).." pts!"
+			SendChatMessage(wmsg, "WHISPER", nil, sender) 
 		end
 		Print("", "", sender .. " answered correctly first!")
 		-- End the round immediately
