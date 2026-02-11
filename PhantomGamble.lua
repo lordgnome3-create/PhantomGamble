@@ -1,5 +1,6 @@
 -- PhantomGamble Addon for Turtle WoW (1.12 compatible)
 -- Features: Regular Gambling + Death Roll + Trivia
+-- MODIFIED VERSION: Gold betting removed from Trivia mode only
 
 -- ============================================
 -- VARIABLES
@@ -50,9 +51,8 @@ local statsLines = {}
 local STATS_LINE_HEIGHT = 16
 local MAX_STATS_LINES = 50
 
--- Trivia variables
+-- Trivia variables (GOLD REMOVED - CHANGE #1)
 local TR_Active = false
-local TR_GoldWager = 50
 local TR_CurrentRound = 0
 local TR_TotalRounds = 5
 local TR_WaitingForAnswers = false
@@ -67,7 +67,6 @@ local TR_AnswerTimeout = 30
 local TR_SelectedExpansion = "All"
 local TR_UsedQuestions = {}
 local TR_PointsPerQuestion = 5
-
 -- ============================================
 -- TRIVIA QUESTION DATABASE
 -- ============================================
@@ -774,7 +773,7 @@ local function ReportDebts()
 end
 
 -- ============================================
--- TRIVIA FUNCTIONS
+-- TRIVIA FUNCTIONS (GOLD REMOVED - CHANGE #2 and #3)
 -- ============================================
 
 local function TR_GetQuestionPool()
@@ -856,23 +855,7 @@ function TR_EndGame()
 	TR_Active = false; TR_WaitingForAnswers = false; TR_TimerActive = false
 	ChatMsg("TRIVIA GAME OVER!")
 	TR_ReportScores()
-	if TR_GoldWager > 0 and next(TR_Scores) then
-		local sorted = {}
-		for name, score in pairs(TR_Scores) do table.insert(sorted, { name=name, score=score }) end
-		table.sort(sorted, function(a,b) return a.score > b.score end)
-		if table.getn(sorted) >= 2 then
-			local winner = sorted[1]; local loser = sorted[table.getn(sorted)]
-			winner.name = string.upper(string.sub(winner.name,1,1))..string.sub(winner.name,2)
-			loser.name = string.upper(string.sub(loser.name,1,1))..string.sub(loser.name,2)
-			local msg = loser.name.." (last place) owes "..winner.name.." (1st place) "..tostring(TR_GoldWager).." gold!"
-			ChatMsg(msg)
-			PhantomGamble["stats"][winner.name] = (PhantomGamble["stats"][winner.name] or 0) + TR_GoldWager
-			PhantomGamble["stats"][loser.name] = (PhantomGamble["stats"][loser.name] or 0) - TR_GoldWager
-			statsNeedUpdate = true; AddDebt(loser.name, winner.name, TR_GoldWager)
-			if PhantomGamble_StatsFrame and PhantomGamble_StatsFrame:IsVisible() then RefreshStatsDisplay() end
-			if PhantomGamble_DebtsFrame and PhantomGamble_DebtsFrame:IsVisible() then RefreshDebtsDisplay() end
-		end
-	end
+	-- CHANGE #3: Gold payout block removed
 	TR_Scores = {}; TR_CurrentRound = 0; TR_UsedQuestions = {}
 	if PhantomGamble_TR_StartBtn then PhantomGamble_TR_StartBtn:SetText("Start Trivia"); PhantomGamble_TR_StartBtn:Enable() end
 	if PhantomGamble_TR_AskBtn then PhantomGamble_TR_AskBtn:Disable() end
@@ -892,12 +875,10 @@ local function TR_EndRound()
 end
 
 function PhantomGamble_TR_Start()
-	local goldText = PhantomGamble_TR_GoldEditBox:GetText()
-	TR_GoldWager = (goldText ~= "" and tonumber(goldText)) and tonumber(goldText) or 0
+	-- CHANGE #2: Gold wager reading removed
 	TR_Active = true; TR_CurrentRound = 0; TR_Scores = {}; TR_UsedQuestions = {}; TR_AnswerOrder = {}; TR_WaitingForAnswers = false
-	PhantomGamble["lastTRGold"] = TR_GoldWager; PhantomGamble["lastTRRounds"] = TR_TotalRounds; PhantomGamble["lastTRExpansion"] = TR_SelectedExpansion
-	local wt = TR_GoldWager > 0 and tostring(TR_GoldWager).." gold wager" or "No gold wager"
-	local msg = "PhantomGamble TRIVIA! "..tostring(TR_TotalRounds).." rounds - "..TR_SelectedExpansion.." - "..wt.." - Answer in chat!"
+	PhantomGamble["lastTRRounds"] = TR_TotalRounds; PhantomGamble["lastTRExpansion"] = TR_SelectedExpansion
+	local msg = "PhantomGamble TRIVIA! "..tostring(TR_TotalRounds).." rounds - "..TR_SelectedExpansion.." - Answer in chat!"
 	ChatMsg(msg)
 	PhantomGamble_TR_StartBtn:SetText("In Progress..."); PhantomGamble_TR_StartBtn:Disable()
 	PhantomGamble_TR_AskBtn:Enable(); PhantomGamble_TR_CancelBtn:Enable()
@@ -1040,7 +1021,8 @@ local function ShowMode(mode)
 	currentMode = mode
 	local regEls = {"PhantomGamble_RegularTitle","PhantomGamble_EditBox","PhantomGamble_AcceptOnes_Button","PhantomGamble_LASTCALL_Button","PhantomGamble_ROLL_Button","PhantomGamble_Cancel_Button"}
 	local drEls = {"PhantomGamble_DRTitle","PhantomGamble_DR_StartLabel","PhantomGamble_DR_StartSelect","PhantomGamble_DR_StartDropdown","PhantomGamble_DR_GoldLabel","PhantomGamble_DR_GoldEditBox","PhantomGamble_DR_StartBtn","PhantomGamble_DR_CancelBtn","PhantomGamble_DR_Status"}
-	local trEls = {"PhantomGamble_TRTitle","PhantomGamble_TR_GoldLabel","PhantomGamble_TR_GoldEditBox","PhantomGamble_TR_RoundsLabel","PhantomGamble_TR_RoundsSelect","PhantomGamble_TR_RoundsDropdown","PhantomGamble_TR_ExpLabel","PhantomGamble_TR_ExpSelect","PhantomGamble_TR_ExpDropdown","PhantomGamble_TR_StartBtn","PhantomGamble_TR_AskBtn","PhantomGamble_TR_CancelBtn","PhantomGamble_TR_Status"}
+	-- CHANGE #5: Gold elements removed from trEls array
+	local trEls = {"PhantomGamble_TRTitle","PhantomGamble_TR_RoundsLabel","PhantomGamble_TR_RoundsSelect","PhantomGamble_TR_RoundsDropdown","PhantomGamble_TR_ExpLabel","PhantomGamble_TR_ExpSelect","PhantomGamble_TR_ExpDropdown","PhantomGamble_TR_StartBtn","PhantomGamble_TR_AskBtn","PhantomGamble_TR_CancelBtn","PhantomGamble_TR_Status"}
 	for _,n in ipairs(regEls) do local fr=getglobal(n); if fr then fr:Hide() end end
 	for _,n in ipairs(drEls) do local fr=getglobal(n); if fr then fr:Hide() end end
 	for _,n in ipairs(trEls) do local fr=getglobal(n); if fr then fr:Hide() end end
@@ -1061,7 +1043,7 @@ local function ShowMode(mode)
 end
 
 -- ============================================
--- MAIN FRAME CREATION
+-- MAIN FRAME CREATION (TRIVIA GOLD UI REMOVED)
 -- ============================================
 local function CreateMainFrame()
 	local f = CreateFrame("Frame","PhantomGamble_Frame",UIParent)
@@ -1190,7 +1172,7 @@ local function CreateMainFrame()
 	local dst = f:CreateFontString("PhantomGamble_DR_Status","OVERLAY","GameFontNormalSmall"); dst:SetPoint("TOP",dcb,"BOTTOM",0,-8); dst:SetWidth(180); dst:SetText("|cffffff00Waiting...|r")
 
 	-- ==========================================
-	-- PANEL 3: Trivia
+	-- PANEL 3: Trivia (GOLD UI REMOVED)
 	-- ==========================================
 	local trt = f:CreateFontString("PhantomGamble_TRTitle","OVERLAY","GameFontNormalSmall"); trt:SetPoint("TOP",f,"TOP",0,cTop); trt:SetText("|cffffff00WoW Trivia|r")
 
@@ -1231,15 +1213,9 @@ local function CreateMainFrame()
 	end
 	trs:SetScript("OnClick", function() if trdd:IsVisible() then trdd:Hide() else trdd:Show(); tedd:Hide() end end)
 
-	-- Gold wager
-	local tgl = f:CreateFontString("PhantomGamble_TR_GoldLabel","OVERLAY","GameFontNormalSmall"); tgl:SetPoint("TOPLEFT",trl,"BOTTOMLEFT",0,-8); tgl:SetWidth(50); tgl:SetJustifyH("RIGHT"); tgl:SetText("|cffffd700Gold:|r")
-	local tge = CreateFrame("EditBox","PhantomGamble_TR_GoldEditBox",f); tge:SetWidth(50); tge:SetHeight(18); tge:SetPoint("LEFT",tgl,"RIGHT",5,0)
-	tge:SetFontObject(ChatFontNormal); tge:SetAutoFocus(false); tge:SetNumeric(true); tge:SetMaxLetters(6); tge:SetJustifyH("CENTER")
-	tge:SetScript("OnEscapePressed", function() this:ClearFocus() end); tge:SetScript("OnEnterPressed", function() this:ClearFocus() end)
-	local tgebg = tge:CreateTexture(nil,"BACKGROUND"); tgebg:SetTexture(0.1,0.1,0.1,0.8); tgebg:SetAllPoints(tge)
-
+	-- GOLD WAGER UI REMOVED - Buttons positioned closer
 	-- Trivia buttons
-	local tsb = CreateFrame("Button","PhantomGamble_TR_StartBtn",f,"GameMenuButtonTemplate"); tsb:SetWidth(140); tsb:SetHeight(22); tsb:SetPoint("TOP",trt,"BOTTOM",0,-100); tsb:SetText("Start Trivia"); tsb:SetScript("OnClick", function() PhantomGamble_TR_Start() end)
+	local tsb = CreateFrame("Button","PhantomGamble_TR_StartBtn",f,"GameMenuButtonTemplate"); tsb:SetWidth(140); tsb:SetHeight(22); tsb:SetPoint("TOP",trt,"BOTTOM",0,-80); tsb:SetText("Start Trivia"); tsb:SetScript("OnClick", function() PhantomGamble_TR_Start() end)
 	local tab = CreateFrame("Button","PhantomGamble_TR_AskBtn",f,"GameMenuButtonTemplate"); tab:SetWidth(140); tab:SetHeight(22); tab:SetPoint("TOP",tsb,"BOTTOM",0,-4); tab:SetText("Ask Question"); tab:SetScript("OnClick", function() PhantomGamble_TR_AskQuestion() end); tab:Disable()
 	local tcb = CreateFrame("Button","PhantomGamble_TR_CancelBtn",f,"GameMenuButtonTemplate"); tcb:SetWidth(140); tcb:SetHeight(22); tcb:SetPoint("TOP",tab,"BOTTOM",0,-4); tcb:SetText("Cancel"); tcb:SetScript("OnClick", function() PhantomGamble_TR_Cancel() end); tcb:Disable()
 	local tst = f:CreateFontString("PhantomGamble_TR_Status","OVERLAY","GameFontNormalSmall"); tst:SetPoint("TOP",tcb,"BOTTOM",0,-8); tst:SetWidth(180); tst:SetText("|cffffff00Waiting...|r")
@@ -1555,10 +1531,9 @@ function PhantomGamble_OnEvent()
 			PhantomGamble_DR_StartSelectText:SetText(dt)
 		end
 		PhantomGamble_DR_GoldEditBox:SetText(tostring(PhantomGamble["lastDRGold"] or 100))
-		-- Restore trivia settings
+		-- Restore trivia settings (GOLD REMOVED)
 		TR_TotalRounds = PhantomGamble["lastTRRounds"] or 5
 		TR_SelectedExpansion = PhantomGamble["lastTRExpansion"] or "All"
-		if PhantomGamble_TR_GoldEditBox then PhantomGamble_TR_GoldEditBox:SetText(tostring(PhantomGamble["lastTRGold"] or 50)) end
 		if PhantomGamble_TR_RoundsSelectText then PhantomGamble_TR_RoundsSelectText:SetText(tostring(TR_TotalRounds)) end
 		if PhantomGamble_TR_ExpSelectText then PhantomGamble_TR_ExpSelectText:SetText(TR_SelectedExpansion) end
 		chatmethod = chatmethods[PhantomGamble["chat"] or 1] or "RAID"
