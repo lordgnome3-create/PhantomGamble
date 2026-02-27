@@ -1,6 +1,6 @@
 -- PhantomGamble Addon for Turtle WoW (1.12 compatible)
--- Features: Regular Gambling + Death Roll + Trivia
--- MODIFIED VERSION: Gold betting removed from Trivia mode only
+-- Features: Regular Gambling + Trivia
+-- MODIFIED VERSION: Death Roll removed, Gold betting removed from Trivia mode
 
 -- ============================================
 -- VARIABLES
@@ -22,23 +22,13 @@ local tiehigh = 0
 local tielow = 0
 local whispermethod = false
 
-local DR_Active = false
-local DR_Player1 = nil
-local DR_Player2 = nil
-local DR_CurrentRoller = nil
-local DR_CurrentMax = 0
-local DR_StartNumber = 100
-local DR_GoldWager = 100
-local DR_AcceptingPlayers = false
-local DR_WaitingForRoll = false
-
 local debtsNeedUpdate = true
 local sortedDebts = {}
 local debtLines = {}
 local MAX_DEBT_LINES = 50
 
 local currentMode = 1
-local modeNames = { "Regular Gamble", "Death Roll", "Trivia" }
+local modeNames = { "Regular Gamble", "Trivia" }
 
 local chatmethods = { "RAID", "GUILD", "PARTY", "SAY" }
 local chatmethod = chatmethods[1]
@@ -51,7 +41,7 @@ local statsLines = {}
 local STATS_LINE_HEIGHT = 16
 local MAX_STATS_LINES = 50
 
--- Trivia variables (GOLD REMOVED - CHANGE #1)
+-- Trivia variables
 local TR_Active = false
 local TR_CurrentRound = 0
 local TR_TotalRounds = 5
@@ -773,7 +763,7 @@ local function ReportDebts()
 end
 
 -- ============================================
--- TRIVIA FUNCTIONS (GOLD REMOVED - CHANGE #2 and #3)
+-- TRIVIA FUNCTIONS
 -- ============================================
 
 local function TR_GetQuestionPool()
@@ -828,11 +818,10 @@ end
 
 local function TR_AwardPoints()
 	local num = table.getn(TR_AnswerOrder)
-	if num == 0 then 
-		ChatMsg("Nobody answered correctly!") 
-		return 
+	if num == 0 then
+		ChatMsg("Nobody answered correctly!")
+		return
 	end
-	-- Only award points to first person
 	local winner = TR_AnswerOrder[1]
 	TR_Scores[winner] = (TR_Scores[winner] or 0) + TR_PointsPerQuestion
 	local msg = winner.." answered first! (+"..tostring(TR_PointsPerQuestion).." pts)"
@@ -845,7 +834,7 @@ local function TR_ReportScores()
 	for name, score in pairs(TR_Scores) do table.insert(sorted, { name=name, score=score }) end
 	table.sort(sorted, function(a,b) return a.score > b.score end)
 	ChatMsg("--- Trivia Scores ---")
-	for i, entry in ipairs(sorted) do 
+	for i, entry in ipairs(sorted) do
 		local msg = tostring(i)..". "..entry.name..": "..tostring(entry.score).." pts"
 		ChatMsg(msg)
 	end
@@ -855,7 +844,6 @@ function TR_EndGame()
 	TR_Active = false; TR_WaitingForAnswers = false; TR_TimerActive = false
 	ChatMsg("TRIVIA GAME OVER!")
 	TR_ReportScores()
-	-- CHANGE #3: Gold payout block removed
 	TR_Scores = {}; TR_CurrentRound = 0; TR_UsedQuestions = {}
 	if PhantomGamble_TR_StartBtn then PhantomGamble_TR_StartBtn:SetText("Start Trivia"); PhantomGamble_TR_StartBtn:Enable() end
 	if PhantomGamble_TR_AskBtn then PhantomGamble_TR_AskBtn:Disable() end
@@ -875,7 +863,6 @@ local function TR_EndRound()
 end
 
 function PhantomGamble_TR_Start()
-	-- CHANGE #2: Gold wager reading removed
 	TR_Active = true; TR_CurrentRound = 0; TR_Scores = {}; TR_UsedQuestions = {}; TR_AnswerOrder = {}; TR_WaitingForAnswers = false
 	PhantomGamble["lastTRRounds"] = TR_TotalRounds; PhantomGamble["lastTRExpansion"] = TR_SelectedExpansion
 	local msg = "PhantomGamble TRIVIA! "..tostring(TR_TotalRounds).." rounds - "..TR_SelectedExpansion.." - Answer in chat!"
@@ -908,25 +895,22 @@ end
 
 function PhantomGamble_TR_ParseChat(msg, sender)
 	if not TR_Active or not TR_WaitingForAnswers then return end
-	-- Check if this person already answered
 	for _, name in ipairs(TR_AnswerOrder) do
 		if string.lower(name) == string.lower(sender) then return end
 	end
-	-- Check if answer is correct
 	if TR_CheckAnswer(msg) then
 		table.insert(TR_AnswerOrder, sender)
-		if whispermethod then 
+		if whispermethod then
 			local wmsg = "Correct! You win "..tostring(TR_PointsPerQuestion).." pts!"
-			SendChatMessage(wmsg, "WHISPER", nil, sender) 
+			SendChatMessage(wmsg, "WHISPER", nil, sender)
 		end
 		Print("", "", sender .. " answered correctly first!")
-		-- End the round immediately
 		TR_EndRound()
 	end
 end
 
 -- ============================================
--- STATS WINDOW (compact)
+-- STATS WINDOW
 -- ============================================
 local function CreateStatsWindow()
 	local f = CreateFrame("Frame", "PhantomGamble_StatsFrame", UIParent)
@@ -973,7 +957,7 @@ local function CreateStatsWindow()
 end
 
 -- ============================================
--- DEBTS WINDOW (compact)
+-- DEBTS WINDOW
 -- ============================================
 local function CreateDebtsWindow()
 	local f = CreateFrame("Frame","PhantomGamble_DebtsFrame",UIParent)
@@ -1020,21 +1004,14 @@ end
 local function ShowMode(mode)
 	currentMode = mode
 	local regEls = {"PhantomGamble_RegularTitle","PhantomGamble_EditBox","PhantomGamble_AcceptOnes_Button","PhantomGamble_LASTCALL_Button","PhantomGamble_ROLL_Button","PhantomGamble_Cancel_Button"}
-	local drEls = {"PhantomGamble_DRTitle","PhantomGamble_DR_StartLabel","PhantomGamble_DR_StartSelect","PhantomGamble_DR_StartDropdown","PhantomGamble_DR_GoldLabel","PhantomGamble_DR_GoldEditBox","PhantomGamble_DR_StartBtn","PhantomGamble_DR_CancelBtn","PhantomGamble_DR_Status"}
-	-- CHANGE #5: Gold elements removed from trEls array
 	local trEls = {"PhantomGamble_TRTitle","PhantomGamble_TR_RoundsLabel","PhantomGamble_TR_RoundsSelect","PhantomGamble_TR_RoundsDropdown","PhantomGamble_TR_ExpLabel","PhantomGamble_TR_ExpSelect","PhantomGamble_TR_ExpDropdown","PhantomGamble_TR_StartBtn","PhantomGamble_TR_AskBtn","PhantomGamble_TR_CancelBtn","PhantomGamble_TR_Status"}
 	for _,n in ipairs(regEls) do local fr=getglobal(n); if fr then fr:Hide() end end
-	for _,n in ipairs(drEls) do local fr=getglobal(n); if fr then fr:Hide() end end
 	for _,n in ipairs(trEls) do local fr=getglobal(n); if fr then fr:Hide() end end
 	if PhantomGamble_ModeDropdown then PhantomGamble_ModeDropdown:Hide() end
 	if mode == 1 then
 		for _,n in ipairs(regEls) do local fr=getglobal(n); if fr then fr:Show() end end
 		if PhantomGamble_ModeBtnText then PhantomGamble_ModeBtnText:SetText("|cff00ff00Regular Gamble|r") end
 	elseif mode == 2 then
-		for _,n in ipairs(drEls) do local fr=getglobal(n); if fr then fr:Show() end end
-		if PhantomGamble_DR_StartDropdown then PhantomGamble_DR_StartDropdown:Hide() end
-		if PhantomGamble_ModeBtnText then PhantomGamble_ModeBtnText:SetText("|cffff0000Death Roll|r") end
-	elseif mode == 3 then
 		for _,n in ipairs(trEls) do local fr=getglobal(n); if fr then fr:Show() end end
 		if PhantomGamble_TR_ExpDropdown then PhantomGamble_TR_ExpDropdown:Hide() end
 		if PhantomGamble_TR_RoundsDropdown then PhantomGamble_TR_RoundsDropdown:Hide() end
@@ -1043,13 +1020,13 @@ local function ShowMode(mode)
 end
 
 -- ============================================
--- MAIN FRAME CREATION (TRIVIA GOLD UI REMOVED)
+-- MAIN FRAME CREATION
 -- ============================================
 local function CreateMainFrame()
 	local f = CreateFrame("Frame","PhantomGamble_Frame",UIParent)
-	f:SetWidth(290); f:SetHeight(280); f:SetPoint("CENTER",UIParent,"CENTER",0,0)
+	f:SetWidth(290); f:SetHeight(260); f:SetPoint("CENTER",UIParent,"CENTER",0,0)
 	f:SetMovable(true); f:SetResizable(true); f:EnableMouse(true); f:SetFrameStrata("DIALOG")
-	f:SetMinResize(270,260); f:SetMaxResize(450,400)
+	f:SetMinResize(270,240); f:SetMaxResize(450,400)
 	local bg = f:CreateTexture(nil,"BACKGROUND"); bg:SetTexture(0,0,0,0.85); bg:SetAllPoints(f)
 	for _,side in ipairs({"TOP","BOTTOM","LEFT","RIGHT"}) do
 		local b = f:CreateTexture(nil,"BORDER"); b:SetTexture(0.6,0.6,0.6,1)
@@ -1092,13 +1069,12 @@ local function CreateMainFrame()
 	db:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_RIGHT"); GameTooltip:SetText("Outstanding Debts"); GameTooltip:Show() end)
 	db:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-	-- Close button (created first so we can anchor mode selector relative to it)
+	-- Close button
 	local xb = CreateFrame("Button","PhantomGamble_CloseButton",f,"UIPanelCloseButton"); xb:SetPoint("TOPRIGHT",f,"TOPRIGHT",-2,-2); xb:SetScript("OnClick", function() PhantomGamble_SlashCmd("hide") end)
 
-	-- Mode selector dropdown button (to the left of close button)
+	-- Mode selector dropdown button
 	local mb = CreateFrame("Button","PhantomGamble_ModeBtn",f); mb:SetWidth(90); mb:SetHeight(18); mb:SetPoint("RIGHT",xb,"LEFT",-4,0)
 	local mbbg = mb:CreateTexture(nil,"BACKGROUND"); mbbg:SetTexture(0.15,0.15,0.15,0.9); mbbg:SetAllPoints(mb)
-	-- Border for mode button
 	local mbBorderT = mb:CreateTexture(nil,"BORDER"); mbBorderT:SetTexture(0.5,0.5,0.5,1); mbBorderT:SetHeight(1); mbBorderT:SetPoint("TOPLEFT",mb,"TOPLEFT",0,0); mbBorderT:SetPoint("TOPRIGHT",mb,"TOPRIGHT",0,0)
 	local mbBorderB = mb:CreateTexture(nil,"BORDER"); mbBorderB:SetTexture(0.5,0.5,0.5,1); mbBorderB:SetHeight(1); mbBorderB:SetPoint("BOTTOMLEFT",mb,"BOTTOMLEFT",0,0); mbBorderB:SetPoint("BOTTOMRIGHT",mb,"BOTTOMRIGHT",0,0)
 	local mbBorderL = mb:CreateTexture(nil,"BORDER"); mbBorderL:SetTexture(0.5,0.5,0.5,1); mbBorderL:SetWidth(1); mbBorderL:SetPoint("TOPLEFT",mb,"TOPLEFT",0,0); mbBorderL:SetPoint("BOTTOMLEFT",mb,"BOTTOMLEFT",0,0)
@@ -1107,15 +1083,15 @@ local function CreateMainFrame()
 	local mba = mb:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); mba:SetPoint("RIGHT",mb,"RIGHT",-3,0); mba:SetText("v")
 	mb:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
 
-	-- Mode dropdown
-	local modeDD = CreateFrame("Frame","PhantomGamble_ModeDropdown",f); modeDD:SetWidth(90); modeDD:SetHeight(56); modeDD:SetPoint("TOP",mb,"BOTTOM",0,0); modeDD:SetFrameStrata("TOOLTIP"); modeDD:Hide()
+	-- Mode dropdown (2 modes: Regular Gamble and Trivia)
+	local modeDD = CreateFrame("Frame","PhantomGamble_ModeDropdown",f); modeDD:SetWidth(90); modeDD:SetHeight(38); modeDD:SetPoint("TOP",mb,"BOTTOM",0,0); modeDD:SetFrameStrata("TOOLTIP"); modeDD:Hide()
 	local modeDDBg = modeDD:CreateTexture(nil,"BACKGROUND"); modeDDBg:SetTexture(0,0,0,0.95); modeDDBg:SetAllPoints(modeDD)
 	local modeDDBorderT = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderT:SetTexture(0.5,0.5,0.5,1); modeDDBorderT:SetHeight(1); modeDDBorderT:SetPoint("TOPLEFT",modeDD,"TOPLEFT",-1,0); modeDDBorderT:SetPoint("TOPRIGHT",modeDD,"TOPRIGHT",1,0)
 	local modeDDBorderB = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderB:SetTexture(0.5,0.5,0.5,1); modeDDBorderB:SetHeight(1); modeDDBorderB:SetPoint("BOTTOMLEFT",modeDD,"BOTTOMLEFT",-1,0); modeDDBorderB:SetPoint("BOTTOMRIGHT",modeDD,"BOTTOMRIGHT",1,0)
 	local modeDDBorderL = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderL:SetTexture(0.5,0.5,0.5,1); modeDDBorderL:SetWidth(1); modeDDBorderL:SetPoint("TOPLEFT",modeDD,"TOPLEFT",-1,0); modeDDBorderL:SetPoint("BOTTOMLEFT",modeDD,"BOTTOMLEFT",-1,0)
 	local modeDDBorderR = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderR:SetTexture(0.5,0.5,0.5,1); modeDDBorderR:SetWidth(1); modeDDBorderR:SetPoint("TOPRIGHT",modeDD,"TOPRIGHT",1,0); modeDDBorderR:SetPoint("BOTTOMRIGHT",modeDD,"BOTTOMRIGHT",1,0)
 
-	local modeColors = { "|cff00ff00", "|cffff0000", "|cffffff00" }
+	local modeColors = { "|cff00ff00", "|cffffff00" }
 	for i, modeName in ipairs(modeNames) do
 		local optBtn = CreateFrame("Button","PhantomGamble_ModeOpt"..i,modeDD); optBtn:SetWidth(88); optBtn:SetHeight(17); optBtn:SetPoint("TOP",modeDD,"TOP",0,-1-((i-1)*18))
 		local optText = optBtn:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); optText:SetPoint("CENTER",optBtn,"CENTER",0,0); optText:SetText(modeColors[i]..modeName.."|r")
@@ -1142,37 +1118,7 @@ local function CreateMainFrame()
 	local cnb = CreateFrame("Button","PhantomGamble_Cancel_Button",f,"GameMenuButtonTemplate"); cnb:SetWidth(140); cnb:SetHeight(22); cnb:SetPoint("TOP",rlb,"BOTTOM",0,-4); cnb:SetText("Cancel"); cnb:SetScript("OnClick", function() PhantomGamble_OnClickCANCEL() end); cnb:Disable()
 
 	-- ==========================================
-	-- PANEL 2: Death Roll
-	-- ==========================================
-	local drt = f:CreateFontString("PhantomGamble_DRTitle","OVERLAY","GameFontNormalSmall"); drt:SetPoint("TOP",f,"TOP",0,cTop); drt:SetText("|cffff0000Death Roll|r")
-	local dsl = f:CreateFontString("PhantomGamble_DR_StartLabel","OVERLAY","GameFontNormalSmall"); dsl:SetPoint("TOPLEFT",drt,"BOTTOM",-55,-10); dsl:SetWidth(35); dsl:SetJustifyH("RIGHT"); dsl:SetText("|cffffffffStart:|r")
-	local dss = CreateFrame("Button","PhantomGamble_DR_StartSelect",f); dss:SetWidth(70); dss:SetHeight(20); dss:SetPoint("LEFT",dsl,"RIGHT",5,0)
-	local dssbg = dss:CreateTexture(nil,"BACKGROUND"); dssbg:SetTexture(0.1,0.1,0.1,0.8); dssbg:SetAllPoints(dss)
-	local dsst = dss:CreateFontString("PhantomGamble_DR_StartSelectText","OVERLAY","GameFontHighlightSmall"); dsst:SetPoint("CENTER",dss,"CENTER",-5,0); dsst:SetText("100")
-	local dssa = dss:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); dssa:SetPoint("RIGHT",dss,"RIGHT",-3,0); dssa:SetText("v")
-	dss:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
-	local dsdd = CreateFrame("Frame","PhantomGamble_DR_StartDropdown",f); dsdd:SetWidth(70); dsdd:SetHeight(110); dsdd:SetPoint("TOP",dss,"BOTTOM",0,0); dsdd:SetFrameStrata("TOOLTIP"); dsdd:Hide()
-	local dsddbg = dsdd:CreateTexture(nil,"BACKGROUND"); dsddbg:SetTexture(0,0,0,0.9); dsddbg:SetAllPoints(dsdd)
-	local startOpts = {10,50,100,1000,10000}
-	for i,val in ipairs(startOpts) do
-		local ob = CreateFrame("Button","PhantomGamble_DR_StartOpt"..i,dsdd); ob:SetWidth(68); ob:SetHeight(20); ob:SetPoint("TOP",dsdd,"TOP",0,-2-((i-1)*21))
-		local ot = ob:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); ot:SetPoint("CENTER",ob,"CENTER",0,0)
-		if val>=10000 then ot:SetText("10,000") elseif val>=1000 then ot:SetText("1,000") else ot:SetText(tostring(val)) end
-		ob:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight"); ob.value=val
-		ob:SetScript("OnClick", function() DR_StartNumber=this.value; local dt; if this.value>=10000 then dt="10,000" elseif this.value>=1000 then dt="1,000" else dt=tostring(this.value) end; PhantomGamble_DR_StartSelectText:SetText(dt); PhantomGamble["lastDRStart"]=this.value; dsdd:Hide() end)
-	end
-	dss:SetScript("OnClick", function() if dsdd:IsVisible() then dsdd:Hide() else dsdd:Show() end end)
-	local dgl = f:CreateFontString("PhantomGamble_DR_GoldLabel","OVERLAY","GameFontNormalSmall"); dgl:SetPoint("TOPLEFT",dsl,"BOTTOMLEFT",0,-10); dgl:SetWidth(35); dgl:SetJustifyH("RIGHT"); dgl:SetText("|cffffd700Gold:|r")
-	local dge = CreateFrame("EditBox","PhantomGamble_DR_GoldEditBox",f); dge:SetWidth(70); dge:SetHeight(20); dge:SetPoint("LEFT",dgl,"RIGHT",5,0)
-	dge:SetFontObject(ChatFontNormal); dge:SetAutoFocus(false); dge:SetNumeric(true); dge:SetMaxLetters(6); dge:SetJustifyH("CENTER")
-	dge:SetScript("OnEscapePressed", function() this:ClearFocus() end); dge:SetScript("OnEnterPressed", function() this:ClearFocus() end)
-	local dgebg = dge:CreateTexture(nil,"BACKGROUND"); dgebg:SetTexture(0.1,0.1,0.1,0.8); dgebg:SetAllPoints(dge)
-	local dsb = CreateFrame("Button","PhantomGamble_DR_StartBtn",f,"GameMenuButtonTemplate"); dsb:SetWidth(140); dsb:SetHeight(22); dsb:SetPoint("TOP",drt,"BOTTOM",0,-80); dsb:SetText("Start Death Roll"); dsb:SetScript("OnClick", function() PhantomGamble_DR_Start() end)
-	local dcb = CreateFrame("Button","PhantomGamble_DR_CancelBtn",f,"GameMenuButtonTemplate"); dcb:SetWidth(140); dcb:SetHeight(22); dcb:SetPoint("TOP",dsb,"BOTTOM",0,-4); dcb:SetText("Cancel"); dcb:SetScript("OnClick", function() PhantomGamble_DR_Cancel() end); dcb:Disable()
-	local dst = f:CreateFontString("PhantomGamble_DR_Status","OVERLAY","GameFontNormalSmall"); dst:SetPoint("TOP",dcb,"BOTTOM",0,-8); dst:SetWidth(180); dst:SetText("|cffffff00Waiting...|r")
-
-	-- ==========================================
-	-- PANEL 3: Trivia (GOLD UI REMOVED)
+	-- PANEL 2: Trivia
 	-- ==========================================
 	local trt = f:CreateFontString("PhantomGamble_TRTitle","OVERLAY","GameFontNormalSmall"); trt:SetPoint("TOP",f,"TOP",0,cTop); trt:SetText("|cffffff00WoW Trivia|r")
 
@@ -1213,9 +1159,8 @@ local function CreateMainFrame()
 	end
 	trs:SetScript("OnClick", function() if trdd:IsVisible() then trdd:Hide() else trdd:Show(); tedd:Hide() end end)
 
-	-- GOLD WAGER UI REMOVED - Buttons positioned closer
 	-- Trivia buttons
-	local tsb = CreateFrame("Button","PhantomGamble_TR_StartBtn",f,"GameMenuButtonTemplate"); tsb:SetWidth(140); tsb:SetHeight(22); tsb:SetPoint("TOP",trt,"BOTTOM",0,-80); tsb:SetText("Start Trivia"); tsb:SetScript("OnClick", function() PhantomGamble_TR_Start() end)
+	local tsb = CreateFrame("Button","PhantomGamble_TR_StartBtn",f,"GameMenuButtonTemplate"); tsb:SetWidth(140); tsb:SetHeight(22); tsb:SetPoint("TOP",trt,"BOTTOM",0,-60); tsb:SetText("Start Trivia"); tsb:SetScript("OnClick", function() PhantomGamble_TR_Start() end)
 	local tab = CreateFrame("Button","PhantomGamble_TR_AskBtn",f,"GameMenuButtonTemplate"); tab:SetWidth(140); tab:SetHeight(22); tab:SetPoint("TOP",tsb,"BOTTOM",0,-4); tab:SetText("Ask Question"); tab:SetScript("OnClick", function() PhantomGamble_TR_AskQuestion() end); tab:Disable()
 	local tcb = CreateFrame("Button","PhantomGamble_TR_CancelBtn",f,"GameMenuButtonTemplate"); tcb:SetWidth(140); tcb:SetHeight(22); tcb:SetPoint("TOP",tab,"BOTTOM",0,-4); tcb:SetText("Cancel"); tcb:SetScript("OnClick", function() PhantomGamble_TR_Cancel() end); tcb:Disable()
 	local tst = f:CreateFontString("PhantomGamble_TR_Status","OVERLAY","GameFontNormalSmall"); tst:SetPoint("TOP",tcb,"BOTTOM",0,-8); tst:SetWidth(180); tst:SetText("|cffffff00Waiting...|r")
@@ -1234,7 +1179,7 @@ local function CreateMainFrame()
 	rz:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_TOPLEFT"); GameTooltip:SetText("Drag to resize"); GameTooltip:Show() end)
 	rz:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-	-- Default: show Regular Gamble, hide others
+	-- Default: show Regular Gamble
 	ShowMode(1)
 	return f
 end
@@ -1275,74 +1220,6 @@ end
 function PG_MinimapButton_OnClick()
 	if PhantomGamble and PhantomGamble["active"]==1 then PhantomGamble_Frame:Hide(); PhantomGamble["active"]=0
 	else PhantomGamble_Frame:Show(); if PhantomGamble then PhantomGamble["active"]=1 end end
-end
-
--- ============================================
--- DEATH ROLL FUNCTIONS
--- ============================================
-function PhantomGamble_DR_Start()
-	local gt = PhantomGamble_DR_GoldEditBox:GetText()
-	if not DR_StartNumber or DR_StartNumber < 2 then DR_StartNumber = 100 end
-	if gt=="" or not tonumber(gt) or tonumber(gt)<1 then DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Please enter a valid gold wager.|r"); return end
-	DR_GoldWager = tonumber(gt); DR_CurrentMax = DR_StartNumber; DR_Active = false; DR_AcceptingPlayers = true; DR_Player1 = nil; DR_Player2 = nil; DR_WaitingForRoll = false
-	PhantomGamble["lastDRStart"] = DR_StartNumber; PhantomGamble["lastDRGold"] = DR_GoldWager
-	ChatMsg("Death Roll! Starting at "..DR_StartNumber.." for "..DR_GoldWager.." gold! Type 1 to join (need 2 players).")
-	PhantomGamble_DR_StartBtn:SetText("Waiting..."); PhantomGamble_DR_StartBtn:Disable(); PhantomGamble_DR_CancelBtn:Enable()
-	PhantomGamble_DR_Status:SetText("|cffffff00Waiting for players...|r")
-end
-
-function PhantomGamble_DR_Cancel()
-	DR_Active=false; DR_AcceptingPlayers=false; DR_Player1=nil; DR_Player2=nil; DR_WaitingForRoll=false; DR_CurrentMax=0
-	PhantomGamble_DR_StartBtn:SetText("Start Death Roll"); PhantomGamble_DR_StartBtn:Enable(); PhantomGamble_DR_CancelBtn:Disable()
-	PhantomGamble_DR_Status:SetText("|cffffff00Cancelled|r"); ChatMsg("Death Roll has been cancelled.")
-end
-
-function PhantomGamble_DR_AddPlayer(name)
-	if not DR_AcceptingPlayers then return end
-	if DR_Player1 and string.lower(DR_Player1)==string.lower(name) then return end
-	if DR_Player2 and string.lower(DR_Player2)==string.lower(name) then return end
-	if not DR_Player1 then
-		DR_Player1 = name; Print("","",name.." joined Death Roll as Player 1")
-		PhantomGamble_DR_Status:SetText("|cff00ff00P1: "..name.."|r\n|cffffff00Waiting for P2...|r")
-		if whispermethod then SendChatMessage("You joined as Player 1!","WHISPER",nil,name) end
-	elseif not DR_Player2 then
-		DR_Player2 = name; Print("","",name.." joined Death Roll as Player 2"); DR_AcceptingPlayers = false
-		DR_Active = true; DR_CurrentRoller = DR_Player1; DR_WaitingForRoll = true
-		PhantomGamble_DR_Status:SetText("|cff00ff00P1: "..DR_Player1.."|r\n|cff00ff00P2: "..DR_Player2.."|r")
-		ChatMsg("Death Roll started! "..DR_Player1.." vs "..DR_Player2.." - Start: "..DR_StartNumber..", Wager: "..DR_GoldWager.." gold!")
-		ChatMsg(DR_Player1.." rolls first! /random 1-"..DR_CurrentMax)
-		if whispermethod then SendChatMessage("You joined as Player 2!","WHISPER",nil,name) end
-	end
-end
-
-function PhantomGamble_DR_ParseRoll(msg)
-	if not DR_Active or not DR_WaitingForRoll then return end
-	local _,_,name,roll,minroll,maxroll = string.find(msg, "(.+) rolls (%d+) %((%d+)%-(%d+)%)")
-	if not name then return end
-	roll=tonumber(roll); minroll=tonumber(minroll); maxroll=tonumber(maxroll)
-	if string.lower(name)~=string.lower(DR_CurrentRoller) then return end
-	if minroll~=1 or maxroll~=DR_CurrentMax then ChatMsg(name.." rolled wrong range! Should be 1-"..DR_CurrentMax); return end
-	if roll == 1 then
-		local winner,loser
-		if string.lower(DR_CurrentRoller)==string.lower(DR_Player1) then loser=DR_Player1; winner=DR_Player2
-		else loser=DR_Player2; winner=DR_Player1 end
-		winner=string.upper(string.sub(winner,1,1))..string.sub(winner,2)
-		loser=string.upper(string.sub(loser,1,1))..string.sub(loser,2)
-		ChatMsg("DEATH! "..loser.." rolled a 1!")
-		ChatMsg(loser.." owes "..winner.." "..DR_GoldWager.." gold!")
-		PhantomGamble["stats"][winner]=(PhantomGamble["stats"][winner] or 0)+DR_GoldWager
-		PhantomGamble["stats"][loser]=(PhantomGamble["stats"][loser] or 0)-DR_GoldWager
-		statsNeedUpdate=true; AddDebt(loser, winner, DR_GoldWager)
-		if PhantomGamble_StatsFrame and PhantomGamble_StatsFrame:IsVisible() then RefreshStatsDisplay() end
-		if PhantomGamble_DebtsFrame and PhantomGamble_DebtsFrame:IsVisible() then RefreshDebtsDisplay() end
-		DR_Active=false; DR_WaitingForRoll=false; DR_Player1=nil; DR_Player2=nil
-		PhantomGamble_DR_StartBtn:SetText("Start Death Roll"); PhantomGamble_DR_StartBtn:Enable(); PhantomGamble_DR_CancelBtn:Disable()
-		PhantomGamble_DR_Status:SetText("|cff00ff00"..winner.." wins!|r"); return
-	end
-	DR_CurrentMax = roll
-	if string.lower(DR_CurrentRoller)==string.lower(DR_Player1) then DR_CurrentRoller=DR_Player2 else DR_CurrentRoller=DR_Player1 end
-	ChatMsg(name.." rolled "..roll..". "..DR_CurrentRoller.."'s turn! /random 1-"..DR_CurrentMax)
-	PhantomGamble_DR_Status:SetText("|cffffff00"..DR_CurrentRoller.."'s turn|r\n|cffffff00Roll 1-"..DR_CurrentMax.."|r")
 end
 
 -- ============================================
@@ -1443,15 +1320,34 @@ function PhantomGamble_List()
 	ChatMsg("Players: "..list)
 end
 
+-- FIX: Validate the roll range BEFORE removing the player from the waiting list.
+-- If the range is wrong, the player stays in the list and can reroll.
 function PhantomGamble_ParseRoll(msg)
 	local _,_,name,roll,minroll,maxroll = string.find(msg, "(.+) rolls (%d+) %((%d+)%-(%d+)%)")
-	if not name then return end; roll,minroll,maxroll = tonumber(roll),tonumber(minroll),tonumber(maxroll)
-	local found,idx = false,nil
-	if PhantomGamble.strings then for i,v in ipairs(PhantomGamble.strings) do if string.lower(v)==string.lower(name) then found,idx=true,i; break end end end
-	if not found then return end; table.remove(PhantomGamble.strings, idx)
-	if maxroll~=theMax or minroll~=1 then ChatMsg(name.." rolled wrong range!"); return end
-	if roll>high then high,highname=roll,name end; if roll<low then low,lowname=roll,name end
-	totalrolls=totalrolls-1; Print("","",name.." rolled "..roll..". Waiting: "..totalrolls)
+	if not name then return end
+	roll=tonumber(roll); minroll=tonumber(minroll); maxroll=tonumber(maxroll)
+
+	-- Check the player is in our list first (don't remove yet)
+	local found, idx = false, nil
+	if PhantomGamble.strings then
+		for i,v in ipairs(PhantomGamble.strings) do
+			if string.lower(v)==string.lower(name) then found=true; idx=i; break end
+		end
+	end
+	if not found then return end
+
+	-- Validate roll range; if wrong, notify and leave them in the list to reroll
+	if maxroll~=theMax or minroll~=1 then
+		ChatMsg(name.." rolled wrong range! Please roll /random 1-"..theMax)
+		return
+	end
+
+	-- Valid roll: remove from waiting list and record result
+	table.remove(PhantomGamble.strings, idx)
+	if roll>high then high=roll; highname=name end
+	if roll<low then low=roll; lowname=name end
+	totalrolls=totalrolls-1
+	Print("","",name.." rolled "..roll..". Waiting: "..totalrolls)
 	if totalrolls==0 then PhantomGamble_Report() end
 end
 
@@ -1473,9 +1369,6 @@ function PhantomGamble_ParseChatMsg(msg, sender)
 	-- Trivia answers
 	if TR_Active and TR_WaitingForAnswers then PhantomGamble_TR_ParseChat(msg, sender) end
 
-	-- Death Roll join
-	if msg=="1" and DR_AcceptingPlayers then PhantomGamble_DR_AddPlayer(sender); return end
-
 	-- Regular gambling
 	if msg=="1" and AcceptOnes=="true" then
 		if PhantomGamble_ChkBan(sender)==0 then PhantomGamble_Add(sender); if totalrolls>=2 then PhantomGamble_AcceptOnes_Button:Disable() end
@@ -1493,7 +1386,7 @@ function PhantomGamble_SlashCmd(msg)
 	elseif msg=="show" then PhantomGamble_Frame:Show(); PhantomGamble["active"]=1
 	elseif msg=="stats" then if not PhantomGamble_StatsFrame then CreateStatsWindow() end; PhantomGamble_StatsFrame:Show()
 	elseif msg=="debts" then if not PhantomGamble_DebtsFrame then CreateDebtsWindow() end; PhantomGamble_DebtsFrame:Show()
-	elseif msg=="reset" then PhantomGamble_Reset(); PhantomGamble_DR_Cancel(); Print("","","PhantomGamble has been reset.")
+	elseif msg=="reset" then PhantomGamble_Reset(); Print("","","PhantomGamble has been reset.")
 	elseif msg=="fullstats" then PhantomGamble_OnClickSTATS(true)
 	elseif msg=="resetstats" then PhantomGamble["stats"]={}; statsNeedUpdate=true; Print("","","Stats have been reset.")
 	elseif msg=="resetdebts" then PhantomGamble["debts"]={}; debtsNeedUpdate=true; Print("","","Debts have been reset.")
@@ -1525,13 +1418,7 @@ function PhantomGamble_OnEvent()
 		end
 		if not PhantomGamble["debts"] then PhantomGamble["debts"] = {} end
 		PhantomGamble_EditBox:SetText(tostring(PhantomGamble["lastroll"] or 100))
-		DR_StartNumber = PhantomGamble["lastDRStart"] or 100
-		if PhantomGamble_DR_StartSelectText then
-			local dt; if DR_StartNumber>=10000 then dt="10,000" elseif DR_StartNumber>=1000 then dt="1,000" else dt=tostring(DR_StartNumber) end
-			PhantomGamble_DR_StartSelectText:SetText(dt)
-		end
-		PhantomGamble_DR_GoldEditBox:SetText(tostring(PhantomGamble["lastDRGold"] or 100))
-		-- Restore trivia settings (GOLD REMOVED)
+		-- Restore trivia settings
 		TR_TotalRounds = PhantomGamble["lastTRRounds"] or 5
 		TR_SelectedExpansion = PhantomGamble["lastTRExpansion"] or "All"
 		if PhantomGamble_TR_RoundsSelectText then PhantomGamble_TR_RoundsSelectText:SetText(tostring(TR_TotalRounds)) end
@@ -1554,7 +1441,6 @@ function PhantomGamble_OnEvent()
 	if chatEvent then PhantomGamble_ParseChatMsg(arg1, arg2) end
 
 	if event == "CHAT_MSG_SYSTEM" then
-		if DR_Active then PhantomGamble_DR_ParseRoll(tostring(arg1)) end
 		if AcceptRolls == "true" then PhantomGamble_ParseRoll(tostring(arg1)) end
 	end
 end
