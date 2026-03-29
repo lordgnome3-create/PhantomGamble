@@ -1,1785 +1,1054 @@
--- PhantomGamble Addon for Turtle WoW (1.12 compatible)
--- Features: Regular Gambling + Trivia
--- MODIFIED VERSION: Silver bet support + Tie-split winner handling
+-------------------------------------------------------------------------------
+-- GardenBuddy.lua  v1.2
+-- Turtle WoW Garden Planter Tracker
+-- FishingBuddy-style window  •  Minimap icon  •  Phase chime alerts
+-------------------------------------------------------------------------------
 
--- ============================================
--- VARIABLES
--- ============================================
+GARDENBUDDY_VERSION = "1.2"
 
-local AcceptOnes = "false"
-local AcceptRolls = "false"
-local totalrolls = 0
-local tierolls = 0
-local theMax
-local lowname = ""
-local highname = ""
-local low = 0
-local high = 0
-local tie = 0
-local highbreak = 0
-local lowbreak = 0
-local tiehigh = 0
-local tielow = 0
-local whispermethod = false
+-------------------------------------------------------------------------------
+-- CONSTANTS
+-------------------------------------------------------------------------------
 
--- [ADDED] Silver component of the current bet, and table of all tied top-rollers
-local betSilver = 0
-local highnames = {}
+local GB_PHASE_NAMES = {
+    [1] = "Seedling",
+    [2] = "Sprouting",
+    [3] = "Growing",
+    [4] = "Maturing",
+    [5] = "Harvest Ready",
+}
+local GB_TOTAL_PHASES = 5
 
-local debtsNeedUpdate = true
-local sortedDebts = {}
-local debtLines = {}
-local MAX_DEBT_LINES = 50
+local GB_PHASE_DURATIONS   = { 600, 900, 1200, 1800, 2400, 3600 }
+local GB_DEFAULT_PHASE_DUR = 1800   -- 30 min default
 
-local currentMode = 1
-local modeNames = { "Regular Gamble", "Trivia" }
+local GB_MAX_PLANTERS      = 20
 
-local chatmethods = { "RAID", "GUILD", "PARTY", "SAY" }
-local chatmethod = chatmethods[1]
+-- Frame sizing
+local GB_FRAME_W           = 330
+local GB_ROW_H             = 22
+local GB_MAX_VISIBLE_ROWS  = 8
+local GB_PAD               = 14
 
-PG_Settings = { MinimapPos = 75 }
+-- Column widths
+local GB_COL_DEL   = 16
+local GB_COL_NAME  = 80
+local GB_COL_PHASE = 84
+local GB_COL_TIME  = 68
+local GB_COL_LEFT  = 52
 
-local sortedStats = {}
-local statsNeedUpdate = true
-local statsLines = {}
-local STATS_LINE_HEIGHT = 16
-local MAX_STATS_LINES = 50
-
--- Trivia variables
-local TR_Active = false
-local TR_CurrentRound = 0
-local TR_TotalRounds = 5
-local TR_WaitingForAnswers = false
-local TR_CurrentQuestion = nil
-local TR_CurrentAnswer = nil
-local TR_CurrentAltAnswers = nil
-local TR_AnswerOrder = {}
-local TR_Scores = {}
-local TR_QuestionTimer = 0
-local TR_TimerActive = false
-local TR_AnswerTimeout = 30
-local TR_SelectedExpansion = "All"
-local TR_UsedQuestions = {}
-local TR_PointsPerQuestion = 5
-
--- ============================================
--- TRIVIA QUESTION DATABASE
--- ============================================
-local TriviaQuestions = {}
-
-TriviaQuestions["Vanilla"] = {
-	{ q = "What is the name of the final boss in Blackwing Lair?", a = "Nefarian", alt = {"nefarian", "nef"} },
-	{ q = "Which city is the capital of the Undead Forsaken?", a = "Undercity", alt = {"undercity", "uc"} },
-	{ q = "What is the name of Ragnaros' domain?", a = "Molten Core", alt = {"molten core", "mc"} },
-	{ q = "What is the maximum number of players in a classic 40-man raid?", a = "40", alt = {"40", "forty"} },
-	{ q = "What is the name of the Horde Warchief during Vanilla WoW?", a = "Thrall", alt = {"thrall"} },
-	{ q = "Which dungeon is located inside Blackrock Mountain and is famous for its lava?", a = "Blackrock Depths", alt = {"blackrock depths", "brd"} },
-	{ q = "What material do you need to craft Sulfuras, Hand of Ragnaros?", a = "Sulfuron Ingot", alt = {"sulfuron ingot", "sulfuron"} },
-	{ q = "Which class can use poisons on their weapons?", a = "Rogue", alt = {"rogue", "rogues"} },
-	{ q = "How many talent trees does each class have in Vanilla?", a = "3", alt = {"3", "three"} },
-	{ q = "Which battleground features a mine, blacksmith, stables, lumber mill, and farm?", a = "Arathi Basin", alt = {"arathi basin", "ab"} },
-	{ q = "What is the name of Onyxia's human disguise in Stormwind?", a = "Katrana Prestor", alt = {"katrana prestor", "katrana", "lady prestor"} },
-	{ q = "Which zone is home to the Crossroads, a famous Horde quest hub?", a = "The Barrens", alt = {"the barrens", "barrens"} },
-	{ q = "Which Vanilla raid instance is located in Silithus?", a = "Temple of Ahn'Qiraj", alt = {"temple of ahn'qiraj", "aq40", "aq"} },
-	{ q = "What level do you need to be to enter Molten Core?", a = "60", alt = {"60", "level 60"} },
-	{ q = "Which zone contains the Scarlet Monastery?", a = "Tirisfal Glades", alt = {"tirisfal glades", "tirisfal"} },
-	{ q = "What is the name of the world dragon boss found in Duskwood?", a = "Emeriss", alt = {"emeriss"} },
-	{ q = "What is the name of the dragon guarding Upper Blackrock Spire?", a = "Rend Blackhand", alt = {"rend", "rend blackhand"} },
-	{ q = "Which race was NOT playable in Vanilla WoW: Gnome, Blood Elf, or Dwarf?", a = "Blood Elf", alt = {"blood elf", "blood elves"} },
-	{ q = "What is the name of the Defias Brotherhood leader in The Deadmines?", a = "Edwin VanCleef", alt = {"edwin vancleef", "vancleef"} },
-	{ q = "Which profession lets you disenchant magical items?", a = "Enchanting", alt = {"enchanting"} },
-	{ q = "What is the name of the Alliance capital in Teldrassil?", a = "Darnassus", alt = {"darnassus"} },
-	{ q = "Which dungeon is led by the necromancer Ras Frostwhisper?", a = "Scholomance", alt = {"scholomance", "scholo"} },
-	{ q = "What is the name of the Horde capital city in Durotar?", a = "Orgrimmar", alt = {"orgrimmar", "org"} },
-	{ q = "Which battleground has players fight over flags in a capture the flag style?", a = "Warsong Gulch", alt = {"warsong gulch", "wsg"} },
-	{ q = "What is the name of the bear form druid trainer in Moonglade?", a = "Keeper Remulos", alt = {"keeper remulos", "remulos"} },
-	{ q = "Which raid features the boss C'Thun?", a = "Temple of Ahn'Qiraj", alt = {"temple of ahn'qiraj", "aq40"} },
-	{ q = "What is the max level in Vanilla WoW?", a = "60", alt = {"60", "level 60"} },
-	{ q = "Which class can resurrect players during combat?", a = "Shaman", alt = {"shaman"} },
-	{ q = "What is the name of the dwarf capital city?", a = "Ironforge", alt = {"ironforge", "if"} },
-	{ q = "Which zone is known for being a PvP zone with Tarren Mill and Southshore?", a = "Hillsbrad Foothills", alt = {"hillsbrad foothills", "hillsbrad"} },
-	{ q = "What mount can only be obtained from Baron Rivendare in Stratholme?", a = "Deathcharger", alt = {"deathcharger", "rivendare's deathcharger"} },
-	{ q = "Which class uses totems?", a = "Shaman", alt = {"shaman"} },
-	{ q = "What is the name of the blue dragonflight leader?", a = "Malygos", alt = {"malygos"} },
-	{ q = "Which profession creates bags and armor from cloth?", a = "Tailoring", alt = {"tailoring"} },
-	{ q = "What is the name of the gnome capital city?", a = "Gnomeregan", alt = {"gnomeregan"} },
-	{ q = "Which dungeon features the final boss Archaedas?", a = "Uldaman", alt = {"uldaman"} },
-	{ q = "What is the name of the green dragonflight leader?", a = "Ysera", alt = {"ysera"} },
-	{ q = "Which zone contains the entrance to Blackrock Mountain?", a = "Burning Steppes", alt = {"burning steppes"} },
-	{ q = "What is the name of the red dragonflight leader?", a = "Alexstrasza", alt = {"alexstrasza"} },
-	{ q = "Which class can tame beasts as pets?", a = "Hunter", alt = {"hunter"} },
-	{ q = "What is the name of the final boss in Stratholme?", a = "Baron Rivendare", alt = {"baron rivendare", "rivendare"} },
-	{ q = "Which profession allows you to create potions and elixirs?", a = "Alchemy", alt = {"alchemy"} },
-	{ q = "What is the name of the Naxxramas final boss?", a = "Kel'Thuzad", alt = {"kel'thuzad", "kelthuzad"} },
-	{ q = "Which race starts in Mulgore?", a = "Tauren", alt = {"tauren"} },
-	{ q = "What is the name of the black dragonflight leader?", a = "Nefarian", alt = {"nefarian", "deathwing"} },
+-- Sounds  { label, PlaySound id or nil=off }
+local GB_SOUNDS = {
+    { label = "Chime",      id = "igQuestComplete"   },
+    { label = "Level Up",   id = "LevelUp"           },
+    { label = "Raid Ping",  id = "RaidWarning"       },
+    { label = "Loot Click", id = "igItemPickup"      },
+    { label = "Coin Drop",  id = "igAbilityIconDrop" },
+    { label = "None",       id = nil                 },
 }
 
-TriviaQuestions["The Burning Crusade"] = {
-	{ q = "What is the name of the main villain of The Burning Crusade?", a = "Illidan Stormrage", alt = {"illidan", "illidan stormrage"} },
-	{ q = "Which new race was added to the Alliance in TBC?", a = "Draenei", alt = {"draenei"} },
-	{ q = "Which new race was added to the Horde in TBC?", a = "Blood Elf", alt = {"blood elf", "blood elves"} },
-	{ q = "What is the name of the Draenei capital city?", a = "The Exodar", alt = {"exodar", "the exodar"} },
-	{ q = "What is the final boss of the Black Temple raid?", a = "Illidan Stormrage", alt = {"illidan", "illidan stormrage"} },
-	{ q = "Which zone serves as the main hub in Outland for both factions?", a = "Shattrath City", alt = {"shattrath", "shattrath city"} },
-	{ q = "What level does the Dark Portal become accessible in TBC?", a = "58", alt = {"58", "level 58"} },
-	{ q = "Which dungeon in TBC features a chess event?", a = "Karazhan", alt = {"karazhan", "kara"} },
-	{ q = "What is the name of the Naaru that assists players in Shattrath?", a = "A'dal", alt = {"a'dal", "adal"} },
-	{ q = "What is the name of the final boss in Karazhan?", a = "Prince Malchezaar", alt = {"prince malchezaar", "malchezaar"} },
-	{ q = "Which TBC zone is known for its mushroom-filled landscape?", a = "Zangarmarsh", alt = {"zangarmarsh"} },
-	{ q = "What is the name of the pit lord boss in Magtheridon's Lair?", a = "Magtheridon", alt = {"magtheridon"} },
-	{ q = "What is the name of Lady Vashj's raid instance?", a = "Serpentshrine Cavern", alt = {"serpentshrine cavern", "ssc"} },
-	{ q = "What new PvP feature was introduced in TBC?", a = "Arena", alt = {"arena", "arenas"} },
-	{ q = "What is the name of the Blood Elf capital city?", a = "Silvermoon City", alt = {"silvermoon", "silvermoon city"} },
-	{ q = "What is the name of Kael'thas Sunstrider's raid instance?", a = "Tempest Keep", alt = {"tempest keep", "the eye"} },
-	{ q = "What flying mount requires exalted with Sha'tari Skyguard?", a = "Nether Ray", alt = {"nether ray"} },
-	{ q = "What is the name of the Burning Legion's home world?", a = "Argus", alt = {"argus"} },
-	{ q = "Which profession was introduced in TBC?", a = "Jewelcrafting", alt = {"jewelcrafting", "jc"} },
-	{ q = "What heroic dungeon key is needed for Tempest Keep instances?", a = "Warpforged Key", alt = {"warpforged key"} },
-	{ q = "What is the max level in TBC?", a = "70", alt = {"70", "level 70"} },
-	{ q = "Which zone is the first Horde zone in Outland?", a = "Hellfire Peninsula", alt = {"hellfire peninsula", "hellfire"} },
-	{ q = "What is the name of the ethereal city in Netherstorm?", a = "Area 52", alt = {"area 52"} },
-	{ q = "Which raid features the boss Gruul the Dragonkiller?", a = "Gruul's Lair", alt = {"gruul's lair", "gruuls lair"} },
-	{ q = "What is the name of the ogre city in Nagrand?", a = "Halaa", alt = {"halaa"} },
-	{ q = "Which dungeon is located in Coilfang Reservoir?", a = "Slave Pens", alt = {"slave pens", "the slave pens"} },
-	{ q = "What is the name of the first boss in Black Temple?", a = "High Warlord Naj'entus", alt = {"high warlord naj'entus", "najentus"} },
-	{ q = "Which zone features the Auchindoun dungeon complex?", a = "Terokkar Forest", alt = {"terokkar forest", "terokkar"} },
-	{ q = "What is the name of Illidan's demon hunter trainer?", a = "Akama", alt = {"akama"} },
-	{ q = "Which TBC heroic dungeon has the most bosses?", a = "Tempest Keep", alt = {"tempest keep", "the mechanar"} },
-	{ q = "What is the name of the draenei Prophet?", a = "Velen", alt = {"velen"} },
-	{ q = "Which raid tier was released first in TBC?", a = "Karazhan", alt = {"karazhan", "tier 4"} },
-	{ q = "What is the name of the final boss in Sunwell Plateau?", a = "Kil'jaeden", alt = {"kil'jaeden", "kiljaeden"} },
-	{ q = "Which zone is known for its floating islands?", a = "Nagrand", alt = {"nagrand"} },
-	{ q = "What is the name of the Aldor faction's rival?", a = "The Scryers", alt = {"the scryers", "scryers"} },
-	{ q = "Which dungeon features the boss Murmur?", a = "Shadow Labyrinth", alt = {"shadow labyrinth", "shadow labs"} },
-	{ q = "What is the name of the first flying mount in WoW?", a = "Gryphon", alt = {"gryphon", "wind rider", "wyvern"} },
-	{ q = "Which zone contains the Blade's Edge Mountains?", a = "Outland", alt = {"outland", "blade's edge", "blades edge"} },
-	{ q = "What is the name of the raid before Black Temple?", a = "Hyjal Summit", alt = {"hyjal summit", "mount hyjal", "battle for mount hyjal"} },
-	{ q = "Which boss drops the legendary bow Thori'dal?", a = "Kil'jaeden", alt = {"kil'jaeden", "kiljaeden"} },
-	{ q = "What is the name of the blood elf racial mount?", a = "Hawkstrider", alt = {"hawkstrider"} },
-	{ q = "Which faction controls the Sunwell?", a = "Shattered Sun Offensive", alt = {"shattered sun offensive", "shattered sun"} },
-	{ q = "What is the name of the daily quest hub introduced in Patch 2.1?", a = "Isle of Quel'Danas", alt = {"isle of quel'danas", "quel'danas"} },
-	{ q = "Which raid features Archimonde?", a = "Hyjal Summit", alt = {"hyjal summit", "mount hyjal"} },
-	{ q = "What is the name of the demon hunter starting zone in lore?", a = "Mardum", alt = {"mardum", "black temple"} },
+local GB_MINIMAP_RADIUS = 80
+
+-- System/buff messages that hint the player just placed a planter
+local GB_PLANT_KEYWORDS = {
+    "place the planter",
+    "planter placed",
+    "you plant",
+    "plant the seed",
+    "begin planting",
+    "you set down",
+    "planting complete",
+    "you place a",
+    "garden planter",
 }
 
-TriviaQuestions["Wrath of the Lich King"] = {
-	{ q = "What is the name of the Lich King?", a = "Arthas Menethil", alt = {"arthas", "arthas menethil"} },
-	{ q = "What new class was introduced in WotLK?", a = "Death Knight", alt = {"death knight", "dk"} },
-	{ q = "What is the name of the final raid in WotLK?", a = "Icecrown Citadel", alt = {"icecrown citadel", "icc"} },
-	{ q = "What is the name of Arthas's runeblade?", a = "Frostmourne", alt = {"frostmourne"} },
-	{ q = "What is the name of the Old God imprisoned beneath Ulduar?", a = "Yogg-Saron", alt = {"yogg-saron", "yogg saron", "yogg"} },
-	{ q = "What major city serves as the main hub in Northrend?", a = "Dalaran", alt = {"dalaran"} },
-	{ q = "What is the name of Arthas's horse?", a = "Invincible", alt = {"invincible"} },
-	{ q = "What is the name of the Argent Crusade leader?", a = "Tirion Fordring", alt = {"tirion fordring", "tirion"} },
-	{ q = "Which WotLK dungeon is themed after the Culling of Stratholme?", a = "Culling of Stratholme", alt = {"culling of stratholme", "cos"} },
-	{ q = "Which zone is the starting area for Death Knights?", a = "Ebon Hold", alt = {"ebon hold", "acherus"} },
-	{ q = "What is the name of the titan city found in Storm Peaks?", a = "Ulduar", alt = {"ulduar"} },
-	{ q = "What is the name of the dragon aspect of magic who went insane?", a = "Malygos", alt = {"malygos"} },
-	{ q = "What is the name of the vrykul king in Utgarde Pinnacle?", a = "King Ymiron", alt = {"king ymiron", "ymiron"} },
-	{ q = "Which dungeon is set in a Nerubian underground kingdom?", a = "Azjol-Nerub", alt = {"azjol-nerub", "azjol nerub"} },
-	{ q = "What achievement system was introduced in WotLK?", a = "Achievements", alt = {"achievements", "achievement"} },
-	{ q = "What vehicle-based raid features jousting?", a = "Trial of the Crusader", alt = {"trial of the crusader", "toc"} },
-	{ q = "What is the name of the Lich King's fortress?", a = "Icecrown Citadel", alt = {"icecrown citadel", "icc"} },
-	{ q = "What is the name of the Forsaken plague used at the Wrathgate?", a = "Blight", alt = {"blight", "the blight"} },
-	{ q = "What profession was introduced in WotLK?", a = "Inscription", alt = {"inscription"} },
-	{ q = "Which WotLK zone features the Nexus dungeon?", a = "Borean Tundra", alt = {"borean tundra"} },
-	{ q = "What is the max level in WotLK?", a = "80", alt = {"80", "level 80"} },
-	{ q = "Which raid features Kel'Thuzad as the final boss?", a = "Naxxramas", alt = {"naxxramas", "naxx"} },
-	{ q = "What is the name of the tuskarr village in Borean Tundra?", a = "Kaskala", alt = {"kaskala"} },
-	{ q = "Which zone contains the Wyrmrest Temple?", a = "Dragonblight", alt = {"dragonblight"} },
-	{ q = "What is the name of the first raid released in WotLK?", a = "Naxxramas", alt = {"naxxramas", "naxx"} },
-	{ q = "Which dungeon features the boss Anub'arak?", a = "Azjol-Nerub", alt = {"azjol-nerub", "trial of the crusader"} },
-	{ q = "What is the name of the Argent Tournament daily quest hub?", a = "Argent Tournament Grounds", alt = {"argent tournament grounds", "argent tournament"} },
-	{ q = "Which zone is home to the Kalu'ak faction?", a = "Howling Fjord", alt = {"howling fjord", "borean tundra"} },
-	{ q = "What is the name of the final boss in Ulduar?", a = "Yogg-Saron", alt = {"yogg-saron", "yogg saron", "algalon"} },
-	{ q = "Which WotLK raid features dragon bosses?", a = "The Obsidian Sanctum", alt = {"the obsidian sanctum", "obsidian sanctum"} },
-	{ q = "What is the name of the red dragonflight sanctum?", a = "The Ruby Sanctum", alt = {"the ruby sanctum", "ruby sanctum"} },
-	{ q = "Which zone contains Icecrown Citadel?", a = "Icecrown", alt = {"icecrown"} },
-	{ q = "What is the name of the WotLK pre-launch event?", a = "Scourge Invasion", alt = {"scourge invasion", "zombie invasion"} },
-	{ q = "Which boss guards the gates of Ulduar?", a = "Flame Leviathan", alt = {"flame leviathan"} },
-	{ q = "What is the name of the blood elf prince who aids the Lich King?", a = "Prince Arthas", alt = {"arthas", "prince arthas"} },
-	{ q = "Which dungeon is located in the Dragonblight?", a = "The Obsidian Sanctum", alt = {"the obsidian sanctum", "obsidian sanctum"} },
-	{ q = "What is the name of the titan keeper in Ulduar?", a = "Mimiron", alt = {"mimiron"} },
-	{ q = "Which zone features the Sons of Hodir faction?", a = "Storm Peaks", alt = {"storm peaks"} },
-	{ q = "What is the name of the first boss in Icecrown Citadel?", a = "Lord Marrowgar", alt = {"lord marrowgar", "marrowgar"} },
-	{ q = "Which raid features the boss Sindragosa?", a = "Icecrown Citadel", alt = {"icecrown citadel", "icc"} },
-	{ q = "What is the name of the Death Knight racial mount?", a = "Deathcharger", alt = {"deathcharger", "acherus deathcharger"} },
-	{ q = "Which boss drops the legendary mace Val'anyr?", a = "Yogg-Saron", alt = {"yogg-saron", "yogg"} },
-	{ q = "What is the name of the PvP zone added in WotLK?", a = "Wintergrasp", alt = {"wintergrasp"} },
-	{ q = "Which raid features Algalon the Observer?", a = "Ulduar", alt = {"ulduar"} },
-	{ q = "What is the name of the gunship battle raid?", a = "Icecrown Citadel", alt = {"icecrown citadel", "icc"} },
-}
+-------------------------------------------------------------------------------
+-- RUNTIME STATE
+-------------------------------------------------------------------------------
 
-TriviaQuestions["Cataclysm"] = {
-	{ q = "Which dragon caused the Cataclysm?", a = "Deathwing", alt = {"deathwing", "neltharion"} },
-	{ q = "What is Deathwing's original name?", a = "Neltharion", alt = {"neltharion"} },
-	{ q = "Which two new races were added in Cataclysm?", a = "Worgen and Goblin", alt = {"worgen and goblin", "goblin and worgen"} },
-	{ q = "What is the name of the final raid in Cataclysm?", a = "Dragon Soul", alt = {"dragon soul"} },
-	{ q = "What is the name of the underwater zone introduced in Cataclysm?", a = "Vashj'ir", alt = {"vashj'ir", "vashjir"} },
-	{ q = "Who is the final boss of the Firelands raid?", a = "Ragnaros", alt = {"ragnaros"} },
-	{ q = "What new secondary profession was added in Cataclysm?", a = "Archaeology", alt = {"archaeology", "archeology"} },
-	{ q = "What is the max level cap in Cataclysm?", a = "85", alt = {"85", "level 85"} },
-	{ q = "What feature let you fly in Azeroth for the first time?", a = "Flight Master's License", alt = {"flight master's license", "azeroth flying"} },
-	{ q = "Which Worgen starting zone tells the story of the Gilnean curse?", a = "Gilneas", alt = {"gilneas"} },
-	{ q = "What is the name of Al'Akir's raid?", a = "Throne of the Four Winds", alt = {"throne of the four winds"} },
-	{ q = "Which heroic dungeon features the Echo of Sylvanas?", a = "End Time", alt = {"end time"} },
-	{ q = "What new guild feature allowed guilds to level up?", a = "Guild Leveling", alt = {"guild leveling", "guild levels"} },
-	{ q = "Which classic zone was split in half by lava?", a = "The Barrens", alt = {"the barrens", "barrens"} },
-	{ q = "What is the name of the elemental plane of fire raid?", a = "Firelands", alt = {"firelands"} },
-	{ q = "Which dungeon was revised featuring a troll theme?", a = "Zul'Aman", alt = {"zul'aman", "za"} },
-	{ q = "What is the name of the Twilight Hammer leader?", a = "Cho'gall", alt = {"cho'gall", "chogall"} },
-	{ q = "Which raid tier features Nefarian resurrected?", a = "Blackwing Descent", alt = {"blackwing descent", "bwd"} },
-	{ q = "What is the name of the water elemental plane raid?", a = "Throne of the Tides", alt = {"throne of the tides"} },
-	{ q = "Which Cataclysm zone is on Mount Hyjal?", a = "Mount Hyjal", alt = {"mount hyjal", "hyjal"} },
-	{ q = "What is the goblin starting zone?", a = "Kezan", alt = {"kezan", "lost isles"} },
-	{ q = "Which elemental lord rules Deepholm?", a = "Therazane", alt = {"therazane"} },
-	{ q = "What is the name of the final boss in Dragon Soul?", a = "Deathwing", alt = {"deathwing", "madness of deathwing"} },
-	{ q = "Which dungeon features Ozruk as a boss?", a = "The Stonecore", alt = {"the stonecore", "stonecore"} },
-	{ q = "What is the name of the Cataclysm pre-launch event?", a = "Elemental Invasion", alt = {"elemental invasion"} },
-	{ q = "Which zone contains the Maelstrom?", a = "Deepholm", alt = {"deepholm", "the maelstrom"} },
-	{ q = "What is the name of Thrall's new title in Cataclysm?", a = "World Shaman", alt = {"world shaman", "thrall"} },
-	{ q = "Which raid features Sinestra as a hard mode boss?", a = "Bastion of Twilight", alt = {"bastion of twilight", "bot"} },
-	{ q = "What is the name of the druid legendary staff?", a = "Dragonwrath", alt = {"dragonwrath"} },
-	{ q = "Which zone was destroyed by Deathwing at the start of Cataclysm?", a = "Auberdine", alt = {"auberdine", "darkshore"} },
-	{ q = "What is the name of the troll raid added in patch 4.1?", a = "Zul'Gurub", alt = {"zul'gurub", "zg"} },
-	{ q = "Which boss drops tier tokens in Firelands?", a = "Ragnaros", alt = {"ragnaros", "all bosses"} },
-	{ q = "What is the name of the Twilight's Hammer cult leader?", a = "Cho'gall", alt = {"cho'gall", "deathwing"} },
-	{ q = "Which dungeon is accessed through Stormwind Harbor?", a = "Deadmines", alt = {"deadmines", "the deadmines"} },
-	{ q = "What is the name of the elemental plane of air?", a = "Skywall", alt = {"skywall"} },
-	{ q = "Which raid features the Omnotron Defense System?", a = "Blackwing Descent", alt = {"blackwing descent", "bwd"} },
-	{ q = "What is the name of Deathwing's consort?", a = "Sintharia", alt = {"sintharia", "sinestra"} },
-	{ q = "Which zone contains Grim Batol?", a = "Twilight Highlands", alt = {"twilight highlands"} },
-	{ q = "What is the name of the legendary rogue daggers?", a = "Fangs of the Father", alt = {"fangs of the father", "the sleeper", "the dreamer"} },
-	{ q = "Which boss is known for the Atramedes encounter?", a = "Atramedes", alt = {"atramedes"} },
-	{ q = "What is the name of the new Horde Warchief after Thrall?", a = "Garrosh Hellscream", alt = {"garrosh", "garrosh hellscream"} },
-	{ q = "Which zone contains the Well of Eternity dungeon?", a = "Caverns of Time", alt = {"caverns of time"} },
-	{ q = "What is the name of the aspect that betrayed the others?", a = "Deathwing", alt = {"deathwing", "neltharion"} },
-	{ q = "Which raid features Majordomo Staghelm?", a = "Firelands", alt = {"firelands"} },
-	{ q = "What is the name of the worgen racial mount?", a = "Mountain Horse", alt = {"mountain horse", "horse"} },
-}
+local GB = {}
+GB.rows        = {}
+GB.scrollOfs   = 0
+GB.updateTimer = 0
+GB.initialized = false
 
-TriviaQuestions["Mists of Pandaria"] = {
-	{ q = "What new race was introduced in Mists of Pandaria?", a = "Pandaren", alt = {"pandaren"} },
-	{ q = "What new class was introduced in MoP?", a = "Monk", alt = {"monk"} },
-	{ q = "What is the name of the continent discovered in MoP?", a = "Pandaria", alt = {"pandaria"} },
-	{ q = "What negative emotion entities threaten Pandaria?", a = "The Sha", alt = {"the sha", "sha"} },
-	{ q = "Who becomes the final boss of the Siege of Orgrimmar?", a = "Garrosh Hellscream", alt = {"garrosh", "garrosh hellscream"} },
-	{ q = "What is the max level in MoP?", a = "90", alt = {"90", "level 90"} },
-	{ q = "What is the name of the Pandaren starting zone on a giant turtle?", a = "Wandering Isle", alt = {"wandering isle", "the wandering isle"} },
-	{ q = "Which MoP raid features the Thunder King?", a = "Throne of Thunder", alt = {"throne of thunder", "tot"} },
-	{ q = "What is the name of the Thunder King?", a = "Lei Shen", alt = {"lei shen"} },
-	{ q = "What new feature allows Pokemon-like battles?", a = "Pet Battles", alt = {"pet battles", "pet battle"} },
-	{ q = "Which zone in Pandaria is known for its brewery?", a = "Valley of the Four Winds", alt = {"valley of the four winds"} },
-	{ q = "What is the name of the celestial tournament island?", a = "Timeless Isle", alt = {"timeless isle"} },
-	{ q = "What is the name of the Sha of Fear's raid?", a = "Terrace of Endless Spring", alt = {"terrace of endless spring", "toes"} },
-	{ q = "What new feature let you grow crops on a personal farm?", a = "Halfhill Farm", alt = {"halfhill farm", "the farm", "sunsong ranch"} },
-	{ q = "What ancient empire fell to the Sha?", a = "Mogu Empire", alt = {"mogu", "mogu empire"} },
-	{ q = "What faction controls the Golden Lotus dailies?", a = "Golden Lotus", alt = {"golden lotus"} },
-	{ q = "What challenge mode feature gave cosmetic rewards?", a = "Challenge Modes", alt = {"challenge modes", "challenge mode"} },
-	{ q = "What is the name of the final raid in MoP?", a = "Siege of Orgrimmar", alt = {"siege of orgrimmar", "soo"} },
-	{ q = "Which Pandaren helped the Alliance?", a = "Aysa Cloudsinger", alt = {"aysa", "aysa cloudsinger"} },
-	{ q = "What is the name of the first MoP raid?", a = "Mogu'shan Vaults", alt = {"mogu'shan vaults", "msv", "mogushan vaults"} },
-	{ q = "Which Pandaren helped the Horde?", a = "Ji Firepaw", alt = {"ji firepaw", "ji"} },
-	{ q = "What is the name of the Pandaren emperor?", a = "Shaohao", alt = {"shaohao"} },
-	{ q = "Which zone contains the Shado-Pan Monastery?", a = "Kun-Lai Summit", alt = {"kun-lai summit", "kun lai"} },
-	{ q = "What is the name of the black ox celestial?", a = "Niuzao", alt = {"niuzao"} },
-	{ q = "Which raid features the Sha of Pride?", a = "Siege of Orgrimmar", alt = {"siege of orgrimmar", "soo"} },
-	{ q = "What is the name of the legendary cloak questline?", a = "Wrathion's Questline", alt = {"wrathion", "legendary cloak"} },
-	{ q = "Which zone contains the Jade Temple?", a = "Jade Forest", alt = {"jade forest", "the jade forest"} },
-	{ q = "What is the name of the red crane celestial?", a = "Chi-Ji", alt = {"chi-ji", "chiji"} },
-	{ q = "Which dungeon features the Sha of Doubt?", a = "Temple of the Jade Serpent", alt = {"temple of the jade serpent"} },
-	{ q = "What is the name of the white tiger celestial?", a = "Xuen", alt = {"xuen"} },
-	{ q = "Which zone is home to the Grummles?", a = "Kun-Lai Summit", alt = {"kun-lai summit"} },
-	{ q = "What is the name of the jade serpent celestial?", a = "Yu'lon", alt = {"yu'lon", "yulon"} },
-	{ q = "Which faction represents the Alliance in Pandaria?", a = "Operation: Shieldwall", alt = {"operation: shieldwall", "shieldwall"} },
-	{ q = "What is the name of Garrosh's true form?", a = "Y'Shaarj", alt = {"y'shaarj", "yshaarj"} },
-	{ q = "Which zone contains the Dread Wastes?", a = "Pandaria", alt = {"pandaria", "dread wastes"} },
-	{ q = "What is the name of the Zandalari king in MoP?", a = "Rastakhan", alt = {"rastakhan"} },
-	{ q = "Which raid features the Dark Animus?", a = "Throne of Thunder", alt = {"throne of thunder", "tot"} },
-	{ q = "What is the name of Chen Stormstout's niece?", a = "Li Li", alt = {"li li"} },
-	{ q = "Which dungeon is themed after a brewery?", a = "Stormstout Brewery", alt = {"stormstout brewery"} },
-	{ q = "What is the name of the mogu emperor?", a = "Lei Shen", alt = {"lei shen"} },
-	{ q = "Which raid features Spoils of Pandaria?", a = "Siege of Orgrimmar", alt = {"siege of orgrimmar", "soo"} },
-	{ q = "What is the name of the Isle of Thunder faction?", a = "Kirin Tor Offensive", alt = {"kirin tor offensive", "sunreaver onslaught"} },
-	{ q = "Which zone is the Pandaren starting area?", a = "Wandering Isle", alt = {"wandering isle", "the wandering isle"} },
-	{ q = "What is the name of the final boss before Garrosh?", a = "Paragons of the Klaxxi", alt = {"paragons of the klaxxi", "klaxxi"} },
-	{ q = "Which rare spawn drops the Heavenly Onyx Cloud Serpent?", a = "Alani", alt = {"alani"} },
-}
+-------------------------------------------------------------------------------
+-- SAVED-VARIABLE DEFAULTS
+-------------------------------------------------------------------------------
 
-TriviaQuestions["Warlords of Draenor"] = {
-	{ q = "Who travels back in time to create the Iron Horde?", a = "Garrosh Hellscream", alt = {"garrosh", "garrosh hellscream"} },
-	{ q = "What player housing feature was introduced in WoD?", a = "Garrisons", alt = {"garrisons", "garrison"} },
-	{ q = "What is the max level in WoD?", a = "100", alt = {"100", "level 100"} },
-	{ q = "What is the name of the final raid in WoD?", a = "Hellfire Citadel", alt = {"hellfire citadel", "hfc"} },
-	{ q = "Who is the final boss of Hellfire Citadel?", a = "Archimonde", alt = {"archimonde"} },
-	{ q = "What is the name of Grommash Hellscream's weapon?", a = "Gorehowl", alt = {"gorehowl"} },
-	{ q = "What is the name of the first raid in WoD?", a = "Highmaul", alt = {"highmaul"} },
-	{ q = "Who is the final boss of Highmaul?", a = "Imperator Mar'gok", alt = {"imperator mar'gok", "mar'gok", "margok"} },
-	{ q = "What is the name of the second raid in WoD?", a = "Blackrock Foundry", alt = {"blackrock foundry", "brf"} },
-	{ q = "Which zone in WoD has Draenei settlements?", a = "Shadowmoon Valley", alt = {"shadowmoon valley", "shadowmoon"} },
-	{ q = "What new feature let you collect toys in a UI?", a = "Toy Box", alt = {"toy box", "toybox"} },
-	{ q = "Which orc leads the Bleeding Hollow clan?", a = "Kilrogg Deadeye", alt = {"kilrogg", "kilrogg deadeye"} },
-	{ q = "What new PvP zone featured ongoing faction battles?", a = "Ashran", alt = {"ashran"} },
-	{ q = "Who is Gul'dan's master in the Burning Legion?", a = "Kil'jaeden", alt = {"kil'jaeden", "kiljaeden"} },
-	{ q = "What flying achievement unlocks flying in Draenor?", a = "Draenor Pathfinder", alt = {"draenor pathfinder", "pathfinder"} },
-	{ q = "What is the name of the alternate timeline planet?", a = "Draenor", alt = {"draenor"} },
-	{ q = "Which WoD zone features a massive ogre empire?", a = "Gorgrond", alt = {"gorgrond"} },
-	{ q = "What Garrison building lets you send followers on missions?", a = "Command Table", alt = {"command table", "mission table", "town hall"} },
-	{ q = "Which orc clan is led by Blackhand?", a = "Blackrock Clan", alt = {"blackrock", "blackrock clan"} },
-	{ q = "What is the name of the Draenei prophet?", a = "Velen", alt = {"velen", "prophet velen"} },
-	{ q = "Which zone contains Shattrath City in WoD?", a = "Talador", alt = {"talador"} },
-	{ q = "What is the name of Grommash's son?", a = "Garrosh", alt = {"garrosh", "garrosh hellscream"} },
-	{ q = "Which dungeon is themed after a train?", a = "Grimrail Depot", alt = {"grimrail depot"} },
-	{ q = "What is the name of the legendary ring questline?", a = "Khadgar's Questline", alt = {"khadgar", "legendary ring"} },
-	{ q = "Which zone features the Arakkoa?", a = "Spires of Arak", alt = {"spires of arak"} },
-	{ q = "What is the name of the Horde Garrison location?", a = "Frostwall", alt = {"frostwall"} },
-	{ q = "Which boss is known for the rolling balls mechanic?", a = "Blackhand", alt = {"blackhand"} },
-	{ q = "What is the name of the Alliance Garrison location?", a = "Lunarfall", alt = {"lunarfall"} },
-	{ q = "Which raid features the Iron Maidens?", a = "Blackrock Foundry", alt = {"blackrock foundry", "brf"} },
-	{ q = "What is the name of the Tanaan Jungle faction?", a = "Hand of the Prophet", alt = {"hand of the prophet", "vol'jin's headhunters"} },
-	{ q = "Which dungeon features the final boss Yalnu?", a = "The Everbloom", alt = {"the everbloom", "everbloom"} },
-	{ q = "What is the name of the plant boss in Highmaul?", a = "The Butcher", alt = {"the butcher", "brackenspore"} },
-	{ q = "Which zone is the Horde starting area in Draenor?", a = "Frostfire Ridge", alt = {"frostfire ridge"} },
-	{ q = "What is the name of the legendary ring?", a = "Mage's Ring", alt = {"legendary ring", "mages ring"} },
-	{ q = "Which orc leads the Warsong clan in WoD?", a = "Grommash Hellscream", alt = {"grommash", "grommash hellscream"} },
-	{ q = "What is the name of the shipyard feature added later?", a = "Naval Missions", alt = {"naval missions", "shipyard"} },
-	{ q = "Which boss features a mythic-only phase?", a = "Archimonde", alt = {"archimonde"} },
-	{ q = "What is the name of the time-travel bronze dragon?", a = "Kairozdormu", alt = {"kairozdormu", "kairoz"} },
-	{ q = "Which zone contains the Seat of the Naaru?", a = "Shadowmoon Valley", alt = {"shadowmoon valley"} },
-	{ q = "What is the name of the ogre king in Highmaul?", a = "Imperator Mar'gok", alt = {"imperator mar'gok", "margok"} },
-	{ q = "Which dungeon is set in an iron fortress?", a = "Iron Docks", alt = {"iron docks"} },
-	{ q = "What is the name of the Shadowmoon orc leader?", a = "Ner'zhul", alt = {"ner'zhul", "nerzhul"} },
-	{ q = "Which boss drops the mythic mount in Hellfire Citadel?", a = "Archimonde", alt = {"archimonde"} },
-	{ q = "What is the name of the zone with floating rocks?", a = "Nagrand", alt = {"nagrand"} },
-	{ q = "Which raid features Gorefiend?", a = "Hellfire Citadel", alt = {"hellfire citadel", "hfc"} },
-}
-
-TriviaQuestions["Legion"] = {
-	{ q = "What new class was introduced in Legion?", a = "Demon Hunter", alt = {"demon hunter", "dh"} },
-	{ q = "What is the max level in Legion?", a = "110", alt = {"110", "level 110"} },
-	{ q = "What is the name of the final raid in Legion?", a = "Antorus, the Burning Throne", alt = {"antorus", "antorus the burning throne"} },
-	{ q = "What powerful weapon system was given to each spec?", a = "Artifact Weapons", alt = {"artifact weapons", "artifacts"} },
-	{ q = "What is the name of the Demon Hunter starting zone?", a = "Mardum", alt = {"mardum"} },
-	{ q = "Who is the leader of the Nightborne in Suramar?", a = "Elisande", alt = {"elisande"} },
-	{ q = "What is the name of the Old God-themed raid?", a = "The Emerald Nightmare", alt = {"emerald nightmare", "the emerald nightmare", "en"} },
-	{ q = "Which zone features mana-addicted ancient elves?", a = "Suramar", alt = {"suramar"} },
-	{ q = "What feature replaced Garrisons?", a = "Class Order Halls", alt = {"class order halls", "order halls"} },
-	{ q = "What is the name of the Broken Shore scenario?", a = "The Battle for the Broken Shore", alt = {"broken shore", "the broken shore"} },
-	{ q = "What new dungeon difficulty scales infinitely?", a = "Mythic Plus", alt = {"mythic plus", "mythic+", "m+"} },
-	{ q = "What is the name of the Broken Isles capital city?", a = "Dalaran", alt = {"dalaran"} },
-	{ q = "What is Xe'ra?", a = "A Naaru", alt = {"naaru", "a naaru"} },
-	{ q = "Which Titan facility houses the Pillars of Creation?", a = "Tomb of Sargeras", alt = {"tomb of sargeras", "tos"} },
-	{ q = "What is the name of Illidan's prison?", a = "Vault of the Wardens", alt = {"vault of the wardens"} },
-	{ q = "What is the name of the druid class hall?", a = "Dreamgrove", alt = {"dreamgrove", "the dreamgrove"} },
-	{ q = "What is the artifact weapon for Retribution Paladins?", a = "Ashbringer", alt = {"ashbringer"} },
-	{ q = "What is the name of the world soul on Argus?", a = "Argus the Unmaker", alt = {"argus the unmaker", "argus"} },
-	{ q = "Who sacrificed themselves to imprison Sargeras?", a = "Illidan", alt = {"illidan"} },
-	{ q = "What is the name of the Nighthold's final boss?", a = "Gul'dan", alt = {"gul'dan", "guldan"} },
-	{ q = "Which zone contains Highmountain?", a = "Broken Isles", alt = {"broken isles", "highmountain"} },
-	{ q = "What is the name of the first raid in Legion?", a = "The Emerald Nightmare", alt = {"the emerald nightmare", "emerald nightmare"} },
-	{ q = "Which dungeon features the final boss Advisor Melandrus?", a = "Court of Stars", alt = {"court of stars"} },
-	{ q = "What is the name of Odyn's hall in Stormheim?", a = "Halls of Valor", alt = {"halls of valor", "hov"} },
-	{ q = "Which artifact weapon did Frost Death Knights receive?", a = "The Blades of the Fallen Prince", alt = {"blades of the fallen prince", "frostmourne"} },
-	{ q = "What is the name of the Broken Shore faction?", a = "Armies of Legionfall", alt = {"armies of legionfall", "legionfall"} },
-	{ q = "Which raid features Avatar of Sargeras?", a = "Tomb of Sargeras", alt = {"tomb of sargeras", "tos"} },
-	{ q = "What is the name of the demon world added in 7.3?", a = "Argus", alt = {"argus"} },
-	{ q = "Which dungeon is themed around a cathedral?", a = "Cathedral of Eternal Night", alt = {"cathedral of eternal night"} },
-	{ q = "What is the name of the legendary system in Legion?", a = "Legendary Items", alt = {"legendary items", "legendaries"} },
-	{ q = "Which zone features the Val'sharah storyline?", a = "Val'sharah", alt = {"val'sharah", "valsharah"} },
-	{ q = "What is the name of the mage class hall?", a = "Hall of the Guardian", alt = {"hall of the guardian"} },
-	{ q = "Which raid features Xavius?", a = "The Emerald Nightmare", alt = {"the emerald nightmare", "emerald nightmare"} },
-	{ q = "What is the name of the Suramar city scenario?", a = "Insurrection", alt = {"insurrection"} },
-	{ q = "Which boss drops the Midnight mount?", a = "Attumen the Huntsman", alt = {"attumen", "attumen the huntsman"} },
-	{ q = "What is the name of the Warlock class hall?", a = "Dreadscar Rift", alt = {"dreadscar rift"} },
-	{ q = "Which raid features Helya?", a = "Trial of Valor", alt = {"trial of valor", "tov"} },
-	{ q = "What is the name of the demon hunter artifact weapon?", a = "Twinblades of the Deceiver", alt = {"twinblades of the deceiver", "aldrachi warblades"} },
-	{ q = "Which zone contains Black Rook Hold?", a = "Val'sharah", alt = {"val'sharah"} },
-	{ q = "What is the name of the Monk class hall?", a = "Peak of Serenity", alt = {"peak of serenity"} },
-	{ q = "Which raid tier introduced tier 20 sets?", a = "Tomb of Sargeras", alt = {"tomb of sargeras"} },
-	{ q = "What is the name of the final boss in Antorus?", a = "Argus the Unmaker", alt = {"argus the unmaker", "argus"} },
-	{ q = "Which dungeon is set in a prison?", a = "Vault of the Wardens", alt = {"vault of the wardens", "votw"} },
-	{ q = "What is the name of the Paladin class hall?", a = "Sanctum of Light", alt = {"sanctum of light"} },
-	{ q = "Which Allied Race was added for the Horde in Legion?", a = "Nightborne", alt = {"nightborne"} },
-}
-
-TriviaQuestions["Battle for Azeroth"] = {
-	{ q = "What resource do players collect from Azeroth's wounds?", a = "Azerite", alt = {"azerite"} },
-	{ q = "What is the name of the Alliance continent in BfA?", a = "Kul Tiras", alt = {"kul tiras"} },
-	{ q = "What is the name of the Horde continent in BfA?", a = "Zandalar", alt = {"zandalar"} },
-	{ q = "Who burned down Teldrassil?", a = "Sylvanas Windrunner", alt = {"sylvanas", "sylvanas windrunner"} },
-	{ q = "What is the max level in BfA?", a = "120", alt = {"120", "level 120"} },
-	{ q = "Who is the final boss of Ny'alotha?", a = "N'Zoth", alt = {"n'zoth", "nzoth"} },
-	{ q = "What is the name of the troll empire capital in Zandalar?", a = "Dazar'alor", alt = {"dazar'alor", "dazaralor"} },
-	{ q = "What new feature let you explore random islands?", a = "Island Expeditions", alt = {"island expeditions", "islands"} },
-	{ q = "Who is the king of the Zandalari trolls?", a = "Rastakhan", alt = {"rastakhan"} },
-	{ q = "What corruption system was added in the final patch?", a = "Corrupted Gear", alt = {"corrupted gear", "corruption"} },
-	{ q = "What mega-dungeon was introduced in BfA?", a = "Operation: Mechagon", alt = {"mechagon", "operation mechagon"} },
-	{ q = "What vision system lets you enter corrupted Stormwind/Orgrimmar?", a = "Horrific Visions", alt = {"horrific visions", "visions"} },
-	{ q = "Which Old God is the primary antagonist of BfA?", a = "N'Zoth", alt = {"n'zoth", "nzoth"} },
-	{ q = "What is the pirate-themed zone in Kul Tiras?", a = "Tiragarde Sound", alt = {"tiragarde sound", "tiragarde"} },
-	{ q = "What feature lets you play as allied races?", a = "Allied Races", alt = {"allied races"} },
-	{ q = "What is the Heart of Azeroth?", a = "A necklace", alt = {"necklace", "a necklace", "heart of azeroth"} },
-	{ q = "What warfront features Arathi?", a = "Battle for Stromgarde", alt = {"stromgarde", "battle for stromgarde"} },
-	{ q = "What is the name of the final raid in BfA?", a = "Ny'alotha", alt = {"ny'alotha", "nyalotha"} },
-	{ q = "What allied race features dark-skinned orcs?", a = "Mag'har Orc", alt = {"mag'har orc", "mag'har"} },
-	{ q = "What is the name of the sea serpent boss in Crucible of Storms?", a = "Uu'nat", alt = {"uu'nat", "uunat"} },
-	{ q = "Which zone in Kul Tiras features witches?", a = "Drustvar", alt = {"drustvar"} },
-	{ q = "What is the name of the first raid in BfA?", a = "Uldir", alt = {"uldir"} },
-	{ q = "Which Horde zone features dinosaurs and blood trolls?", a = "Nazmir", alt = {"nazmir"} },
-	{ q = "What is the name of the naga zone added in 8.2?", a = "Nazjatar", alt = {"nazjatar"} },
-	{ q = "Which raid features Jaina Proudmoore?", a = "Battle of Dazar'alor", alt = {"battle of dazar'alor", "dazaralor"} },
-	{ q = "What is the name of the underwater zone in BfA?", a = "Nazjatar", alt = {"nazjatar"} },
-	{ q = "Which dungeon is themed after a snake temple?", a = "Temple of Sethraliss", alt = {"temple of sethraliss"} },
-	{ q = "What is the name of the mechagnome zone?", a = "Mechagon", alt = {"mechagon"} },
-	{ q = "Which raid features G'huun?", a = "Uldir", alt = {"uldir"} },
-	{ q = "What is the name of the Horde zone with sand trolls?", a = "Vol'dun", alt = {"vol'dun", "voldun"} },
-	{ q = "Which allied race features fox people?", a = "Vulpera", alt = {"vulpera"} },
-	{ q = "What is the name of the warfront added in patch 8.1?", a = "Battle for Darkshore", alt = {"darkshore", "battle for darkshore"} },
-	{ q = "Which dungeon features the final boss King Gobbamak?", a = "Operation: Mechagon", alt = {"operation: mechagon", "mechagon"} },
-	{ q = "What is the name of Azshara's raid?", a = "The Eternal Palace", alt = {"the eternal palace", "eternal palace"} },
-	{ q = "Which zone features the Tortollan faction?", a = "Zuldazar", alt = {"zuldazar", "all zones"} },
-	{ q = "What is the name of the Kul Tiran druid form?", a = "Drust", alt = {"drust", "drust forms"} },
-	{ q = "Which raid features Rastakhan?", a = "Battle of Dazar'alor", alt = {"battle of dazar'alor"} },
-	{ q = "What is the name of the essence system?", a = "Azerite Essences", alt = {"azerite essences", "essences"} },
-	{ q = "Which Allied Race joins the Alliance as gnomes?", a = "Mechagnomes", alt = {"mechagnomes", "mechagnome"} },
-	{ q = "What is the name of the Alliance zone with shipwrecks?", a = "Stormsong Valley", alt = {"stormsong valley"} },
-	{ q = "Which dungeon is set in a gold mine?", a = "The MOTHERLODE!!", alt = {"motherlode", "the motherlode"} },
-	{ q = "What is the name of the Horde war campaign?", a = "The Fourth War", alt = {"the fourth war", "war campaign"} },
-	{ q = "Which boss transforms into a kraken?", a = "Queen Azshara", alt = {"queen azshara", "azshara"} },
-	{ q = "What is the name of the PvP island?", a = "Seething Shore", alt = {"seething shore"} },
-	{ q = "Which raid features Il'gynoth?", a = "Ny'alotha", alt = {"ny'alotha"} },
-}
-
-TriviaQuestions["Shadowlands"] = {
-	{ q = "What are the four covenants in Shadowlands?", a = "Kyrian, Venthyr, Night Fae, Necrolord", alt = {"kyrian venthyr night fae necrolord"} },
-	{ q = "What is the name of the zone ruled by the Kyrian?", a = "Bastion", alt = {"bastion"} },
-	{ q = "What is the max level in Shadowlands?", a = "60", alt = {"60", "level 60"} },
-	{ q = "Who is the Jailer's real name?", a = "Zovaal", alt = {"zovaal"} },
-	{ q = "What is the name of the Jailer's prison?", a = "The Maw", alt = {"the maw", "maw"} },
-	{ q = "What is the name of the hub city in Shadowlands?", a = "Oribos", alt = {"oribos"} },
-	{ q = "What roguelike dungeon feature was introduced?", a = "Torghast", alt = {"torghast"} },
-	{ q = "Which covenant is associated with vampires?", a = "Venthyr", alt = {"venthyr"} },
-	{ q = "What is the name of the Night Fae zone?", a = "Ardenweald", alt = {"ardenweald"} },
-	{ q = "What is the name of the Necrolord zone?", a = "Maldraxxus", alt = {"maldraxxus"} },
-	{ q = "Who is the leader of the Venthyr?", a = "Sire Denathrius", alt = {"denathrius", "sire denathrius"} },
-	{ q = "What is the name of the first raid?", a = "Castle Nathria", alt = {"castle nathria", "nathria"} },
-	{ q = "What feature replaced Artifact Power?", a = "Anima", alt = {"anima"} },
-	{ q = "What system lets you customize covenant abilities?", a = "Soulbinds", alt = {"soulbinds", "soulbind"} },
-	{ q = "What is the Arbiter's role?", a = "Judge souls", alt = {"judge souls", "sorting souls", "judging souls"} },
-	{ q = "What mega-dungeon was introduced?", a = "Tazavesh", alt = {"tazavesh"} },
-	{ q = "What is the name of the final raid?", a = "Sepulcher of the First Ones", alt = {"sepulcher", "sepulcher of the first ones"} },
-	{ q = "What powerful sword does the Jailer seek?", a = "Kingsmourne", alt = {"kingsmourne"} },
-	{ q = "What is the name of the afterlife realm?", a = "The Shadowlands", alt = {"shadowlands", "the shadowlands"} },
-	{ q = "What is Anduin's corrupted form called?", a = "Dominated Anduin", alt = {"dominated anduin", "anduin"} },
-	{ q = "Which zone is themed around nature and rebirth?", a = "Ardenweald", alt = {"ardenweald"} },
-	{ q = "What is the name of the second raid?", a = "Sanctum of Domination", alt = {"sanctum of domination", "sod"} },
-	{ q = "Which covenant features House of Constructs?", a = "Necrolord", alt = {"necrolord", "necrolords"} },
-	{ q = "What is the name of the legendary crafting system?", a = "Runecarving", alt = {"runecarving", "legendary crafting"} },
-	{ q = "Which dungeon is set in a theater?", a = "Theater of Pain", alt = {"theater of pain"} },
-	{ q = "What is the name of the Winter Queen?", a = "Winter Queen", alt = {"winter queen", "the winter queen"} },
-	{ q = "Which raid features Sylvanas Windrunner?", a = "Sanctum of Domination", alt = {"sanctum of domination", "sod"} },
-	{ q = "What is the name of the Kyrian leader?", a = "The Archon", alt = {"the archon", "archon"} },
-	{ q = "Which zone is themed around war and strength?", a = "Maldraxxus", alt = {"maldraxxus"} },
-	{ q = "What is the name of the Primus?", a = "The Primus", alt = {"the primus", "primus"} },
-	{ q = "Which covenant ability lets you teleport?", a = "Door of Shadows", alt = {"door of shadows"} },
-	{ q = "What is the name of the broker auction house?", a = "Cartel Au", alt = {"cartel au"} },
-	{ q = "Which dungeon features the final boss Mueh'zala?", a = "De Other Side", alt = {"de other side"} },
-	{ q = "What is the name of the Venthyr zone?", a = "Revendreth", alt = {"revendreth"} },
-	{ q = "Which raid features the Eye of the Jailer?", a = "Sanctum of Domination", alt = {"sanctum of domination"} },
-	{ q = "What is the name of the zone added in 9.1?", a = "Korthia", alt = {"korthia"} },
-	{ q = "Which covenant has the signature ability Summon Steward?", a = "Kyrian", alt = {"kyrian"} },
-	{ q = "What is the name of the broker race?", a = "Brokers", alt = {"brokers", "the brokers"} },
-	{ q = "Which dungeon is set in a spire?", a = "Spires of Ascension", alt = {"spires of ascension"} },
-	{ q = "What is the name of the final boss in Sepulcher?", a = "The Jailer", alt = {"the jailer", "zovaal"} },
-	{ q = "Which zone was added in patch 9.2?", a = "Zereth Mortis", alt = {"zereth mortis"} },
-	{ q = "What is the name of the tier set system reintroduced?", a = "Tier Sets", alt = {"tier sets", "tier gear"} },
-	{ q = "Which covenant can summon a fairy for help?", a = "Night Fae", alt = {"night fae"} },
-	{ q = "What is the name of the legendary axe from Castle Nathria?", a = "Jaithys", alt = {"jaithys"} },
-	{ q = "Which dungeon is themed around plaguefall?", a = "Plaguefall", alt = {"plaguefall"} },
-}
-
-TriviaQuestions["Dragonflight"] = {
-	{ q = "What new race/class combo was introduced?", a = "Dracthyr Evoker", alt = {"dracthyr", "evoker", "dracthyr evoker"} },
-	{ q = "What is the max level in Dragonflight?", a = "70", alt = {"70", "level 70"} },
-	{ q = "What new traversal system lets you ride a dragon?", a = "Dragonriding", alt = {"dragonriding", "dragon riding"} },
-	{ q = "What is the first zone in the Dragon Isles?", a = "The Waking Shores", alt = {"the waking shores", "waking shores"} },
-	{ q = "Who is the Primal Incarnate of fire?", a = "Fyrakk", alt = {"fyrakk"} },
-	{ q = "What is the centaur zone called?", a = "Ohn'ahran Plains", alt = {"ohn'ahran plains", "ohnahran plains"} },
-	{ q = "What is the dragon prison called?", a = "The Forbidden Reach", alt = {"the forbidden reach", "forbidden reach"} },
-	{ q = "Which dragon aspect is associated with time?", a = "Nozdormu", alt = {"nozdormu"} },
-	{ q = "What underground zone was added later?", a = "Zaralek Cavern", alt = {"zaralek cavern", "zaralek"} },
-	{ q = "Who is the leader of the Primalists?", a = "Raszageth", alt = {"raszageth"} },
-	{ q = "What is the first raid in Dragonflight?", a = "Vault of the Incarnates", alt = {"vault of the incarnates", "voti"} },
-	{ q = "What new crafting feature lets players place work orders?", a = "Work Orders", alt = {"work orders", "crafting orders"} },
-	{ q = "What is the final raid in Dragonflight?", a = "Amirdrassil", alt = {"amirdrassil"} },
-	{ q = "What is the Emerald Dream zone added in 10.2?", a = "Emerald Dream", alt = {"emerald dream"} },
-	{ q = "What time-themed mega-dungeon was added?", a = "Dawn of the Infinite", alt = {"dawn of the infinite", "doti"} },
-	{ q = "What talent system overhaul was introduced?", a = "Talent Trees", alt = {"talent trees", "new talent trees"} },
-	{ q = "What is the name of the Dragon Isles continent?", a = "Dragon Isles", alt = {"dragon isles"} },
-	{ q = "What profession specialization system was overhauled?", a = "Profession Specializations", alt = {"profession specializations", "specializations"} },
-	{ q = "Who helps players as a Black Dragonflight member?", a = "Wrathion", alt = {"wrathion", "sabellian", "ebyssian"} },
-	{ q = "What major system was added for profession quality?", a = "Crafting Quality", alt = {"crafting quality", "quality"} },
-	{ q = "Which dragon aspect is associated with earth?", a = "Neltharion", alt = {"neltharion", "deathwing"} },
-	{ q = "What is the name of the second raid?", a = "Aberrus", alt = {"aberrus", "aberrus the shadowed crucible"} },
-	{ q = "Which zone features the Tuskarr?", a = "The Azure Span", alt = {"the azure span", "azure span"} },
-	{ q = "What is the name of the black dragonflight sanctum?", a = "Obsidian Citadel", alt = {"obsidian citadel"} },
-	{ q = "Which Primal Incarnate controls ice?", a = "Raszageth", alt = {"raszageth"} },
-	{ q = "What is the name of the final boss in Vault of the Incarnates?", a = "Raszageth", alt = {"raszageth"} },
-	{ q = "Which zone is themed around magic and arcane energy?", a = "Thaldraszus", alt = {"thaldraszus"} },
-	{ q = "What is the name of the bronze dragonflight leader?", a = "Nozdormu", alt = {"nozdormu"} },
-	{ q = "Which dungeon is set in Neltharus?", a = "Neltharus", alt = {"neltharus"} },
-	{ q = "What is the name of the Evoker healing spec?", a = "Preservation", alt = {"preservation"} },
-	{ q = "Which raid features Scalecommander Sarkareth?", a = "Aberrus", alt = {"aberrus"} },
-	{ q = "What is the name of the green dragonflight sanctum?", a = "Emerald Gardens", alt = {"emerald gardens", "dreamsurge"} },
-	{ q = "Which zone contains Valdrakken?", a = "Thaldraszus", alt = {"thaldraszus"} },
-	{ q = "What is the name of the Evoker DPS spec?", a = "Devastation", alt = {"devastation"} },
-	{ q = "Which dungeon features Primal enemies?", a = "Halls of Infusion", alt = {"halls of infusion"} },
-	{ q = "What is the name of the renewed proto-drake?", a = "Renewed Proto-Drake", alt = {"renewed proto-drake", "proto drake"} },
-	{ q = "Which Primal Incarnate controls earth?", a = "Iridikron", alt = {"iridikron"} },
-	{ q = "What is the name of the reputation system?", a = "Renown", alt = {"renown"} },
-	{ q = "Which dungeon is themed around the blue dragonflight?", a = "The Azure Vault", alt = {"the azure vault", "azure vault"} },
-	{ q = "What is the name of Alexstrasza's stronghold?", a = "Valdrakken", alt = {"valdrakken", "life-binder's vault"} },
-	{ q = "Which raid features Fyrakk?", a = "Amirdrassil", alt = {"amirdrassil"} },
-	{ q = "What is the name of the Dracthyr starting zone?", a = "The Forbidden Reach", alt = {"the forbidden reach", "forbidden reach"} },
-	{ q = "Which profession creates dragon riding glyphs?", a = "Any gathering profession", alt = {"herbalism", "mining", "skinning"} },
-	{ q = "What is the name of the snail mount?", a = "Magmashell", alt = {"magmashell", "big slick"} },
-	{ q = "Which zone features the Dragonscale Expedition?", a = "The Waking Shores", alt = {"the waking shores", "all zones"} },
-}
-
-local TriviaExpansions = { "All", "Vanilla", "The Burning Crusade", "Wrath of the Lich King", "Cataclysm", "Mists of Pandaria", "Warlords of Draenor", "Legion", "Battle for Azeroth", "Shadowlands", "Dragonflight" }
-
--- ============================================
--- HELPER FUNCTIONS
--- ============================================
-
-local function ChatMsg(msg, chatType, language, channel)
-	if not msg or msg == "" then return end
-	chatType = chatType or chatmethod
-	if chatType == "RAID" then
-		if not UnitInRaid("player") then
-			if UnitInParty("player") then chatType = "PARTY"
-			elseif IsInGuild() then chatType = "GUILD"
-			else chatType = "SAY" end
-		end
-	elseif chatType == "PARTY" then
-		if not UnitInParty("player") then
-			if IsInGuild() then chatType = "GUILD"
-			else chatType = "SAY" end
-		end
-	elseif chatType == "GUILD" then
-		if not IsInGuild() then
-			if UnitInParty("player") then chatType = "PARTY"
-			else chatType = "SAY" end
-		end
-	end
-	if chatType == "CHANNEL" and channel then
-		SendChatMessage(msg, chatType, nil, channel)
-	else
-		SendChatMessage(msg, chatType)
-	end
+local function GB_GetDefaults()
+    return {
+        soundEnabled   = true,
+        soundIndex     = 1,
+        phaseDuration  = GB_DEFAULT_PHASE_DUR,
+        planters       = {},
+        nextId         = 1,
+        posX           = 200,
+        posY           = -200,
+        minimized      = false,
+        minimapAngle   = 195,
+    }
 end
 
-local function Print(pre, red, text)
-	if red == "" then red = "/PG" end
-	DEFAULT_CHAT_FRAME:AddMessage(pre .. "|cff00ff00" .. red .. "|r: " .. text)
+-------------------------------------------------------------------------------
+-- UTILITIES
+-------------------------------------------------------------------------------
+
+local function GB_FormatTime(secs)
+    if secs <= 0 then return "00:00" end
+    local m = math.floor(secs / 60)
+    local s = math.floor(math.mod(secs, 60))
+    return string.format("%02d:%02d", m, s)
 end
 
--- [ADDED] Format a silver-unit amount into "Xg Ys" display string.
--- All monetary amounts are stored internally as silver (1 gold = 100 silver).
-local function FormatMoney(silverAmt)
-	if not silverAmt then silverAmt = 0 end
-	silverAmt = math.floor(silverAmt)
-	local g = math.floor(silverAmt / 100)
-	local s = silverAmt - (g * 100)
-	if s == 0 then
-		return g .. " gold"
-	elseif g == 0 then
-		return s .. " silver"
-	else
-		return g .. " gold " .. s .. " silver"
-	end
+-- Returns currentPhase, phaseSecondsRemaining, phasesLeftAfterCurrent
+local function GB_GetStatus(planter)
+    local phaseDur = GardenBuddyDB.phaseDuration
+    local elapsed  = GetTime() - planter.plantedAt
+    local totalT   = GB_TOTAL_PHASES * phaseDur
+
+    if elapsed >= totalT then
+        return GB_TOTAL_PHASES, 0, 0
+    end
+
+    local phase = math.floor(elapsed / phaseDur) + 1
+    if phase > GB_TOTAL_PHASES then phase = GB_TOTAL_PHASES end
+
+    local phaseElap = elapsed - ((phase - 1) * phaseDur)
+    local phaseRem  = phaseDur - phaseElap
+    local left      = GB_TOTAL_PHASES - phase
+
+    return phase, phaseRem, left
 end
 
--- ============================================
--- STATS FUNCTIONS
--- ============================================
-
-local function UpdateSortedStats()
-	sortedStats = {}
-	if not PhantomGamble or not PhantomGamble["stats"] then return end
-	for name, amount in pairs(PhantomGamble["stats"]) do
-		table.insert(sortedStats, { name = name, amount = amount })
-	end
-	table.sort(sortedStats, function(a, b) return a.amount > b.amount end)
-	statsNeedUpdate = false
+local function GB_DetectPhaseAdvance(planter)
+    local phase = GB_GetStatus(planter)
+    if planter.lastKnownPhase == nil then
+        planter.lastKnownPhase = phase
+        return false
+    end
+    if phase > planter.lastKnownPhase then
+        planter.lastKnownPhase = phase
+        return true
+    end
+    return false
 end
 
--- [MODIFIED] Uses FormatMoney for silver-aware display
-local function ReportStats(count, fromBottom)
-	if not PhantomGamble or not PhantomGamble["stats"] or not next(PhantomGamble["stats"]) then
-		Print("", "", "No stats to report!"); return
-	end
-	if statsNeedUpdate then UpdateSortedStats() end
-	local total = table.getn(sortedStats)
-	if total == 0 then Print("", "", "No stats to report!"); return end
-	local startIdx, endIdx, header
-	if fromBottom then
-		header = count == 1 and "Biggest Loser" or ("Bottom " .. count .. " Losers")
-		startIdx = math.max(1, total - count + 1); endIdx = total
-	else
-		header = "Top " .. count .. " Winners"; startIdx = 1; endIdx = math.min(count, total)
-	end
-	ChatMsg("--- PhantomGamble " .. header .. " ---")
-	if fromBottom then
-		for i = endIdx, startIdx, -1 do
-			local e = sortedStats[i]
-			if e then
-				local sign = e.amount >= 0 and "+" or "-"
-				ChatMsg(string.format("%d. %s: %s%s", (total-i+1), e.name, sign, FormatMoney(math.abs(e.amount))))
-			end
-		end
-	else
-		for i = startIdx, endIdx do
-			local e = sortedStats[i]
-			if e then
-				local sign = e.amount >= 0 and "+" or "-"
-				ChatMsg(string.format("%d. %s: %s%s", i, e.name, sign, FormatMoney(math.abs(e.amount))))
-			end
-		end
-	end
+-------------------------------------------------------------------------------
+-- SOUND
+-------------------------------------------------------------------------------
+
+local function GB_PlayChime()
+    if not GardenBuddyDB.soundEnabled then return end
+    local s = GB_SOUNDS[GardenBuddyDB.soundIndex]
+    if s and s.id then PlaySound(s.id) end
 end
 
--- [MODIFIED] Uses FormatMoney for silver-aware display
-local function RefreshStatsDisplay()
-	if not PhantomGamble_StatsFrame or not PhantomGamble_StatsFrame:IsVisible() then return end
-	if not PhantomGamble_StatsScrollChild then return end
-	if statsNeedUpdate then UpdateSortedStats() end
-	for i = 1, MAX_STATS_LINES do if statsLines[i] then statsLines[i]:Hide() end end
-	local childWidth = PhantomGamble_StatsScrollChild:GetWidth()
-	if not childWidth or childWidth <= 0 then childWidth = 240 end
-	local yOffset = 0
-	for i, entry in ipairs(sortedStats) do
-		if i > MAX_STATS_LINES then break end
-		local line = statsLines[i]
-		if not line then
-			line = PhantomGamble_StatsScrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-			line:SetJustifyH("LEFT"); line:SetWidth(childWidth - 10); statsLines[i] = line
-		end
-		line:ClearAllPoints()
-		line:SetPoint("TOPLEFT", PhantomGamble_StatsScrollChild, "TOPLEFT", 5, -yOffset)
-		line:SetWidth(childWidth - 10)
-		local color = entry.amount > 0 and "|cff00ff00" or (entry.amount < 0 and "|cffff0000" or "|cffffff00")
-		local sign = entry.amount >= 0 and "+" or "-"
-		line:SetText(string.format("%d. %s%s: %s%s|r", i, color, entry.name, sign, FormatMoney(math.abs(entry.amount))))
-		line:Show(); yOffset = yOffset + STATS_LINE_HEIGHT
-	end
-	if table.getn(sortedStats) == 0 then
-		local line = statsLines[1]
-		if not line then line = PhantomGamble_StatsScrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); line:SetJustifyH("LEFT"); statsLines[1] = line end
-		line:ClearAllPoints(); line:SetPoint("TOPLEFT", PhantomGamble_StatsScrollChild, "TOPLEFT", 5, 0)
-		line:SetText("|cffffff00No gambling stats yet.|r"); line:Show(); yOffset = STATS_LINE_HEIGHT
-	end
-	local totalHeight = math.max(yOffset + 10, 50)
-	PhantomGamble_StatsScrollChild:SetHeight(totalHeight)
-	if PhantomGamble_StatsScrollBar then
-		local maxScroll = math.max(0, totalHeight - PhantomGamble_StatsScrollFrame:GetHeight())
-		PhantomGamble_StatsScrollBar:SetMinMaxValues(0, maxScroll)
-	end
+local function GB_CheckAlerts()
+    if not GardenBuddyDB or not GardenBuddyDB.planters then return end
+    for _, planter in ipairs(GardenBuddyDB.planters) do
+        if GB_DetectPhaseAdvance(planter) then
+            GB_PlayChime()
+            DEFAULT_CHAT_FRAME:AddMessage(
+                "|cff55ff55[GardenBuddy]|r |cffddffdd" .. planter.name ..
+                "|r advanced to: |cff55ff55" ..
+                (GB_PHASE_NAMES[planter.lastKnownPhase] or
+                 "Phase " .. planter.lastKnownPhase) .. "|r")
+        end
+    end
 end
 
-local function UpdateStatsWindowLayout()
-	if not PhantomGamble_StatsFrame then return end
-	local w = PhantomGamble_StatsFrame:GetWidth()
-	local bw = math.max(40, (w - 30) / 5)
-	if PhantomGamble_StatsTop5Btn then PhantomGamble_StatsTop5Btn:SetWidth(bw) end
-	if PhantomGamble_StatsTop10Btn then PhantomGamble_StatsTop10Btn:SetWidth(bw) end
-	if PhantomGamble_StatsTop15Btn then PhantomGamble_StatsTop15Btn:SetWidth(bw) end
-	if PhantomGamble_StatsBot5Btn then PhantomGamble_StatsBot5Btn:SetWidth(bw) end
-	if PhantomGamble_StatsLastBtn then PhantomGamble_StatsLastBtn:SetWidth(bw) end
+-------------------------------------------------------------------------------
+-- PLANTER MANAGEMENT
+-------------------------------------------------------------------------------
+
+function GB_AddPlanter(name)
+    local db = GardenBuddyDB
+    if not name or strlen(name) == 0 then
+        name = "Planter " .. db.nextId
+    end
+
+    if table.getn(db.planters) >= GB_MAX_PLANTERS then
+        DEFAULT_CHAT_FRAME:AddMessage(
+            "|cff55ff55[GardenBuddy]|r Max planters reached (" .. GB_MAX_PLANTERS .. ")")
+        return
+    end
+
+    local p = {
+        name           = name,
+        plantedAt      = GetTime(),
+        id             = db.nextId,
+        lastKnownPhase = 1,
+    }
+    db.nextId = db.nextId + 1
+    table.insert(db.planters, p)
+
+    DEFAULT_CHAT_FRAME:AddMessage(
+        "|cff55ff55[GardenBuddy]|r Now tracking: |cffddffdd" .. name .. "|r")
+
+    -- Auto-open the window when a planter is added
+    if GardenBuddyMainFrame then
+        GardenBuddyMainFrame:Show()
+        GB_RefreshDisplay()
+    end
 end
 
--- ============================================
--- DEBT TRACKING FUNCTIONS
--- ============================================
-
-local function GetDebtKey(debtor, creditor)
-	if string.lower(debtor) < string.lower(creditor) then return debtor..":"..creditor
-	else return creditor..":"..debtor end
+function GB_RemovePlanter(idx)
+    if not GardenBuddyDB.planters[idx] then return end
+    local name = GardenBuddyDB.planters[idx].name
+    table.remove(GardenBuddyDB.planters, idx)
+    DEFAULT_CHAT_FRAME:AddMessage(
+        "|cff55ff55[GardenBuddy]|r Removed: |cffddffdd" .. name .. "|r")
+    GB_RefreshDisplay()
 end
 
--- [NOTE] Amounts are now tracked in silver (1 gold = 100 silver)
-local function AddDebt(debtor, creditor, amount)
-	if not PhantomGamble["debts"] then PhantomGamble["debts"] = {} end
-	debtor = string.upper(string.sub(debtor,1,1))..string.sub(debtor,2)
-	creditor = string.upper(string.sub(creditor,1,1))..string.sub(creditor,2)
-	local key = GetDebtKey(debtor, creditor)
-	if not PhantomGamble["debts"][key] then PhantomGamble["debts"][key] = { player1=debtor, player2=creditor, amount=0 } end
-	local debt = PhantomGamble["debts"][key]
-	if string.lower(debt.player1) == string.lower(debtor) then debt.amount = debt.amount + amount
-	else debt.amount = debt.amount - amount end
-	if debt.amount == 0 then PhantomGamble["debts"][key] = nil end
-	debtsNeedUpdate = true
+-------------------------------------------------------------------------------
+-- ROW CREATION
+-- NOTE: Plain CreateFrame("Button") in 1.12 does NOT have SetNormalFontObject.
+--       Use a child FontString for the label instead.
+-------------------------------------------------------------------------------
+
+local function GB_CreateRow(parent, rowIdx)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetHeight(GB_ROW_H)
+    row:SetPoint("TOPLEFT",  parent, "TOPLEFT",  0, -((rowIdx - 1) * GB_ROW_H))
+    row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -((rowIdx - 1) * GB_ROW_H))
+
+    -- Alternating row background
+    local bg = row:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints(row)
+    if math.mod(rowIdx, 2) == 0 then
+        bg:SetTexture(0, 0, 0, 0.22)
+    else
+        bg:SetTexture(0.06, 0.16, 0.06, 0.22)
+    end
+
+    -- Delete button — label via FontString child (no SetNormalFontObject needed)
+    local del = CreateFrame("Button", nil, row)
+    del:SetWidth(GB_COL_DEL)
+    del:SetHeight(GB_ROW_H - 2)
+    del:SetPoint("LEFT", row, "LEFT", 2, 0)
+    del:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight")
+
+    local delTxt = del:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    delTxt:SetAllPoints(del)
+    delTxt:SetJustifyH("CENTER")
+    delTxt:SetText("|cffff5555x|r")
+
+    del:SetScript("OnClick", function()
+        if row.planterIdx then GB_RemovePlanter(row.planterIdx) end
+    end)
+    del:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Remove planter", 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    del:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    local xOfs = GB_COL_DEL + 4
+
+    local nameFs = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    nameFs:SetWidth(GB_COL_NAME)
+    nameFs:SetPoint("LEFT", row, "LEFT", xOfs, 0)
+    nameFs:SetJustifyH("LEFT")
+    xOfs = xOfs + GB_COL_NAME + 4
+
+    local phaseFs = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    phaseFs:SetWidth(GB_COL_PHASE)
+    phaseFs:SetPoint("LEFT", row, "LEFT", xOfs, 0)
+    phaseFs:SetJustifyH("LEFT")
+    xOfs = xOfs + GB_COL_PHASE + 4
+
+    local timeFs = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    timeFs:SetWidth(GB_COL_TIME)
+    timeFs:SetPoint("LEFT", row, "LEFT", xOfs, 0)
+    timeFs:SetJustifyH("CENTER")
+    xOfs = xOfs + GB_COL_TIME + 4
+
+    local leftFs = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    leftFs:SetWidth(GB_COL_LEFT)
+    leftFs:SetPoint("LEFT", row, "LEFT", xOfs, 0)
+    leftFs:SetJustifyH("CENTER")
+
+    row.nameFs  = nameFs
+    row.phaseFs = phaseFs
+    row.timeFs  = timeFs
+    row.leftFs  = leftFs
+    row:Hide()
+    return row
 end
 
--- [MODIFIED] paidAmount is in gold (user-facing); converted to silver internally
-local function PayDebt(payer, receiver, amountSilver)
-	if not PhantomGamble["debts"] then return false end
-	payer = string.upper(string.sub(payer,1,1))..string.sub(payer,2)
-	receiver = string.upper(string.sub(receiver,1,1))..string.sub(receiver,2)
-	local key = GetDebtKey(payer, receiver)
-	local debt = PhantomGamble["debts"][key]
-	if not debt then return false, "No debt found between "..payer.." and "..receiver end
-	local owedAmount = string.lower(debt.player1)==string.lower(payer) and debt.amount or -debt.amount
-	if owedAmount <= 0 then return false, payer.." doesn't owe "..receiver.." anything" end
-	if string.lower(debt.player1)==string.lower(payer) then debt.amount = debt.amount - amountSilver
-	else debt.amount = debt.amount + amountSilver end
-	if debt.amount == 0 then PhantomGamble["debts"][key] = nil end
-	debtsNeedUpdate = true
-	return true, nil
+-------------------------------------------------------------------------------
+-- FRAME HEIGHT HELPER
+-------------------------------------------------------------------------------
+
+local function GB_CalcFrameHeight()
+    return GB_PAD + 24 + 6 + 18 + 4 + (GB_MAX_VISIBLE_ROWS * GB_ROW_H) + 6 + 24 + 4 + 24 + GB_PAD
 end
 
-local function UpdateSortedDebts()
-	sortedDebts = {}
-	if not PhantomGamble or not PhantomGamble["debts"] then return end
-	for key, debt in pairs(PhantomGamble["debts"]) do
-		if debt.amount ~= 0 then
-			local debtor, creditor, amt
-			if debt.amount > 0 then debtor=debt.player1; creditor=debt.player2; amt=debt.amount
-			else debtor=debt.player2; creditor=debt.player1; amt=-debt.amount end
-			table.insert(sortedDebts, { debtor=debtor, creditor=creditor, amount=amt })
-		end
-	end
-	table.sort(sortedDebts, function(a,b) return a.amount > b.amount end)
-	debtsNeedUpdate = false
+-------------------------------------------------------------------------------
+-- MAIN FRAME
+-------------------------------------------------------------------------------
+
+local function GB_CreateMainFrame()
+    local fh = GB_CalcFrameHeight()
+    local f  = CreateFrame("Frame", "GardenBuddyMainFrame", UIParent)
+    f:SetWidth(GB_FRAME_W)
+    f:SetHeight(fh)
+    f:SetPoint("TOPLEFT", UIParent, "TOPLEFT",
+               GardenBuddyDB.posX, GardenBuddyDB.posY)
+    f:SetBackdrop({
+        bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile     = true, tileSize = 32, edgeSize = 32,
+        insets   = { left = 11, right = 12, top = 12, bottom = 11 },
+    })
+    f:SetBackdropColor(0.04, 0.12, 0.04, 0.95)
+    f:SetFrameStrata("MEDIUM")
+    f:EnableMouse(true)
+    f:SetMovable(true)
+    f:SetClampedToScreen(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", function() this:StartMoving() end)
+    f:SetScript("OnDragStop",  function()
+        this:StopMovingOrSizing()
+        local _, _, _, x, y = this:GetPoint()
+        GardenBuddyDB.posX = x
+        GardenBuddyDB.posY = y
+    end)
+
+    ---------- Title bar ----------
+    local titleBar = CreateFrame("Frame", nil, f)
+    titleBar:SetHeight(24)
+    titleBar:SetPoint("TOPLEFT",  f, "TOPLEFT",  GB_PAD,        -GB_PAD)
+    titleBar:SetPoint("TOPRIGHT", f, "TOPRIGHT", -(GB_PAD + 38), -GB_PAD)
+
+    local titleBg = titleBar:CreateTexture(nil, "BACKGROUND")
+    titleBg:SetAllPoints(titleBar)
+    titleBg:SetTexture(0.05, 0.28, 0.05, 0.88)
+
+    local titleFs = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    titleFs:SetPoint("CENTER", titleBar, "CENTER", 0, 0)
+    titleFs:SetText("|cff33dd33* |r|cffddffddGarden Buddy|r|cff33dd33 *|r")
+
+    local verFs = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    verFs:SetPoint("RIGHT", titleBar, "RIGHT", -6, 0)
+    verFs:SetText("|cff668866v" .. GARDENBUDDY_VERSION .. "|r")
+
+    ---------- Close button ----------
+    local closeBtn = CreateFrame("Button", "GardenBuddyCloseBtn", f, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
+    closeBtn:SetScript("OnClick", function()
+        GardenBuddyMainFrame:Hide()
+    end)
+
+    ---------- Minimize button ----------
+    local minBtn = CreateFrame("Button", "GardenBuddyMinBtn", f)
+    minBtn:SetWidth(16)
+    minBtn:SetHeight(16)
+    minBtn:SetPoint("TOPRIGHT", closeBtn, "TOPLEFT", -2, 0)
+    minBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
+    minBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
+    minBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight")
+    minBtn:SetScript("OnClick", function() GB_ToggleMinimize() end)
+    minBtn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Minimize / Restore", 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    minBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    ---------- Column headers ----------
+    local hdrY     = -(GB_PAD + 24 + 6)
+    local hdrFrame = CreateFrame("Frame", nil, f)
+    hdrFrame:SetHeight(18)
+    hdrFrame:SetPoint("TOPLEFT",  f, "TOPLEFT",  GB_PAD,  hdrY)
+    hdrFrame:SetPoint("TOPRIGHT", f, "TOPRIGHT", -GB_PAD, hdrY)
+
+    local hdrBg = hdrFrame:CreateTexture(nil, "BACKGROUND")
+    hdrBg:SetAllPoints(hdrFrame)
+    hdrBg:SetTexture(0.08, 0.26, 0.08, 0.82)
+
+    local function MakeHdr(lbl, width, xOfs, justify)
+        local fs = hdrFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        fs:SetWidth(width)
+        fs:SetPoint("LEFT", hdrFrame, "LEFT", xOfs, 0)
+        fs:SetText("|cffaaffaa" .. lbl .. "|r")
+        fs:SetJustifyH(justify or "LEFT")
+    end
+
+    local hx = GB_COL_DEL + 6
+    MakeHdr("Planter",   GB_COL_NAME,  hx)          ; hx = hx + GB_COL_NAME  + 4
+    MakeHdr("Phase",     GB_COL_PHASE, hx)          ; hx = hx + GB_COL_PHASE + 4
+    MakeHdr("Remaining", GB_COL_TIME,  hx, "CENTER"); hx = hx + GB_COL_TIME  + 4
+    MakeHdr("Left",      GB_COL_LEFT,  hx, "CENTER")
+
+    f.hdrFrame = hdrFrame
+
+    ---------- Row area ----------
+    local contentY = hdrY - 18 - 4
+    local contentH = GB_MAX_VISIBLE_ROWS * GB_ROW_H
+
+    local content = CreateFrame("Frame", nil, f)
+    content:SetHeight(contentH)
+    content:SetPoint("TOPLEFT",  f, "TOPLEFT",  GB_PAD,  contentY)
+    content:SetPoint("TOPRIGHT", f, "TOPRIGHT", -GB_PAD, contentY)
+    f.content = content
+
+    local noPlFs = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    noPlFs:SetPoint("CENTER", content, "CENTER", 0, 0)
+    noPlFs:SetText("|cff668866No active planters.\n" ..
+                   "Click the minimap icon or type |r|cffddffdd/gb add|r")
+    noPlFs:Hide()
+    f.noPlText = noPlFs
+
+    -- Scroll arrows
+    local upArrow = CreateFrame("Button", nil, f)
+    upArrow:SetWidth(14) ; upArrow:SetHeight(14)
+    upArrow:SetPoint("TOPRIGHT", content, "TOPRIGHT", 16, 0)
+    upArrow:SetNormalTexture("Interface\\Buttons\\Arrow-Up-Up")
+    upArrow:SetPushedTexture("Interface\\Buttons\\Arrow-Up-Down")
+    upArrow:SetScript("OnClick", function()
+        if GB.scrollOfs > 0 then
+            GB.scrollOfs = GB.scrollOfs - 1
+            GB_RefreshDisplay()
+        end
+    end)
+
+    local downArrow = CreateFrame("Button", nil, f)
+    downArrow:SetWidth(14) ; downArrow:SetHeight(14)
+    downArrow:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", 16, 0)
+    downArrow:SetNormalTexture("Interface\\Buttons\\Arrow-Down-Up")
+    downArrow:SetPushedTexture("Interface\\Buttons\\Arrow-Down-Down")
+    downArrow:SetScript("OnClick", function()
+        local total = table.getn(GardenBuddyDB.planters)
+        if GB.scrollOfs + GB_MAX_VISIBLE_ROWS < total then
+            GB.scrollOfs = GB.scrollOfs + 1
+            GB_RefreshDisplay()
+        end
+    end)
+
+    f.upArrow   = upArrow
+    f.downArrow = downArrow
+
+    -- Create all row frames
+    for i = 1, GB_MAX_VISIBLE_ROWS do
+        GB.rows[i] = GB_CreateRow(content, i)
+    end
+
+    ---------- Separator line ----------
+    local sepY = contentY - contentH - 3
+    local sep  = f:CreateTexture(nil, "ARTWORK")
+    sep:SetHeight(2)
+    sep:SetPoint("TOPLEFT",  f, "TOPLEFT",  GB_PAD + 4, sepY)
+    sep:SetPoint("TOPRIGHT", f, "TOPRIGHT", -GB_PAD - 4, sepY)
+    sep:SetTexture(0.15, 0.45, 0.15, 0.8)
+
+    ---------- Bottom row 1: Add Planter + Sound ----------
+    local btn1Y = GB_PAD + 24 + 4 + 24
+
+    local addBtn = CreateFrame("Button", "GardenBuddyAddBtn", f, "GameMenuButtonTemplate")
+    addBtn:SetWidth(110)
+    addBtn:SetHeight(22)
+    addBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", GB_PAD, btn1Y)
+    addBtn:SetText("|cff55ff55+ Add Planter|r")
+    addBtn:SetScript("OnClick", function() GB_ShowAddDialog() end)
+
+    local soundBtn = CreateFrame("Button", "GardenBuddySoundBtn", f, "GameMenuButtonTemplate")
+    soundBtn:SetWidth(125)
+    soundBtn:SetHeight(22)
+    soundBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -GB_PAD, btn1Y)
+    soundBtn:SetScript("OnClick", function() GB_CycleSound() end)
+    soundBtn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_TOP")
+        GameTooltip:SetText("Click to cycle alert sound.\nPlays a preview.", 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    soundBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    f.soundBtn = soundBtn
+
+    ---------- Bottom row 2: Phase duration ----------
+    local durBtn = CreateFrame("Button", "GardenBuddyDurBtn", f, "GameMenuButtonTemplate")
+    durBtn:SetWidth(160)
+    durBtn:SetHeight(22)
+    durBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, GB_PAD + 2)
+    durBtn:SetScript("OnClick", function() GB_CycleDuration() end)
+    durBtn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_TOP")
+        GameTooltip:SetText("Click to change phase duration.\nMatch your server garden timer!", 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    durBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    f.durBtn = durBtn
+
+    ---------- OnUpdate (throttled ~1s) ----------
+    f:SetScript("OnUpdate", function()
+        GB.updateTimer = GB.updateTimer + arg1
+        if GB.updateTimer >= 1.0 then
+            GB.updateTimer = 0
+            GB_CheckAlerts()
+            if GardenBuddyMainFrame:IsShown() and not GardenBuddyDB.minimized then
+                GB_RefreshDisplay()
+            end
+        end
+    end)
+
+    GB_UpdateBottomButtons()
+    return f
 end
 
--- [MODIFIED] Uses FormatMoney for silver-aware display
-local function RefreshDebtsDisplay()
-	if not PhantomGamble_DebtsFrame or not PhantomGamble_DebtsFrame:IsVisible() then return end
-	if not PhantomGamble_DebtsScrollChild then return end
-	if debtsNeedUpdate then UpdateSortedDebts() end
-	for i = 1, MAX_DEBT_LINES do if debtLines[i] then debtLines[i]:Hide() end end
-	local childWidth = PhantomGamble_DebtsScrollChild:GetWidth()
-	if not childWidth or childWidth <= 0 then childWidth = 240 end
-	local yOffset = 0
-	for i, entry in ipairs(sortedDebts) do
-		if i > MAX_DEBT_LINES then break end
-		local line = debtLines[i]
-		if not line then line = PhantomGamble_DebtsScrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); line:SetJustifyH("LEFT"); line:SetWidth(childWidth-10); debtLines[i]=line end
-		line:ClearAllPoints(); line:SetPoint("TOPLEFT", PhantomGamble_DebtsScrollChild, "TOPLEFT", 5, -yOffset); line:SetWidth(childWidth-10)
-		line:SetText(string.format("|cffff0000%s|r owes |cff00ff00%s|r |cffffff00%s|r", entry.debtor, entry.creditor, FormatMoney(entry.amount)))
-		line:Show(); yOffset = yOffset + STATS_LINE_HEIGHT
-	end
-	if table.getn(sortedDebts) == 0 then
-		local line = debtLines[1]
-		if not line then line = PhantomGamble_DebtsScrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall"); line:SetJustifyH("LEFT"); debtLines[1]=line end
-		line:ClearAllPoints(); line:SetPoint("TOPLEFT", PhantomGamble_DebtsScrollChild, "TOPLEFT", 5, 0)
-		line:SetText("|cff00ff00No outstanding debts!|r"); line:Show(); yOffset = STATS_LINE_HEIGHT
-	end
-	local totalHeight = math.max(yOffset + 10, 50)
-	PhantomGamble_DebtsScrollChild:SetHeight(totalHeight)
-	if PhantomGamble_DebtsScrollBar then
-		PhantomGamble_DebtsScrollBar:SetMinMaxValues(0, math.max(0, totalHeight - PhantomGamble_DebtsScrollFrame:GetHeight()))
-	end
-end
-
--- [MODIFIED] Uses FormatMoney for silver-aware display
-local function ReportDebts()
-	if not PhantomGamble or not PhantomGamble["debts"] or not next(PhantomGamble["debts"]) then Print("","","No outstanding debts!"); return end
-	if debtsNeedUpdate then UpdateSortedDebts() end
-	if table.getn(sortedDebts) == 0 then Print("","","No outstanding debts!"); return end
-	ChatMsg("--- PhantomGamble Outstanding Debts ---")
-	for i, entry in ipairs(sortedDebts) do
-		if i > 10 then break end
-		ChatMsg(string.format("%s owes %s %s", entry.debtor, entry.creditor, FormatMoney(entry.amount)))
-	end
-end
-
--- ============================================
--- TRIVIA FUNCTIONS
--- ============================================
-
-local function TR_GetQuestionPool()
-	if TR_SelectedExpansion == "All" then
-		local pool = {}
-		for expName, questions in pairs(TriviaQuestions) do
-			for _, q in ipairs(questions) do table.insert(pool, { expansion=expName, question=q }) end
-		end
-		return pool
-	else
-		local pool = {}
-		local questions = TriviaQuestions[TR_SelectedExpansion]
-		if questions then for _, q in ipairs(questions) do table.insert(pool, { expansion=TR_SelectedExpansion, question=q }) end end
-		return pool
-	end
-end
-
-local function TR_PickQuestion()
-	local pool = TR_GetQuestionPool()
-	if table.getn(pool) == 0 then return nil end
-	local available = {}
-	for _, entry in ipairs(pool) do
-		local key = entry.expansion..":"..entry.question.q
-		if not TR_UsedQuestions[key] then table.insert(available, entry) end
-	end
-	if table.getn(available) == 0 then TR_UsedQuestions = {}; available = pool end
-	local idx = math.random(1, table.getn(available))
-	local picked = available[idx]
-	TR_UsedQuestions[picked.expansion..":"..picked.question.q] = true
-	return picked
-end
-
-local function TR_CheckAnswer(msg)
-	if not TR_CurrentAnswer then return false end
-	local lowerMsg = string.lower(msg)
-	if lowerMsg == string.lower(TR_CurrentAnswer) then return true end
-	if TR_CurrentAltAnswers then
-		for _, alt in ipairs(TR_CurrentAltAnswers) do
-			if lowerMsg == string.lower(alt) then return true end
-		end
-	end
-	return false
-end
-
-local function TR_UpdateStatus()
-	if not PhantomGamble_TR_Status then return end
-	if not TR_Active then PhantomGamble_TR_Status:SetText("|cffffff00Waiting...|r"); return end
-	local t = "|cffffff00Round "..tostring(TR_CurrentRound).."/"..tostring(TR_TotalRounds).."|r"
-	if TR_WaitingForAnswers then t = t .. "\n|cff00ff00Waiting for answers...|r" end
-	PhantomGamble_TR_Status:SetText(t)
-end
-
-local function TR_AwardPoints()
-	local num = table.getn(TR_AnswerOrder)
-	if num == 0 then
-		ChatMsg("Nobody answered correctly!")
-		return
-	end
-	local winner = TR_AnswerOrder[1]
-	TR_Scores[winner] = (TR_Scores[winner] or 0) + TR_PointsPerQuestion
-	local msg = winner.." answered first! (+"..tostring(TR_PointsPerQuestion).." pts)"
-	ChatMsg(msg)
-end
-
-local function TR_ReportScores()
-	if not TR_Scores or not next(TR_Scores) then ChatMsg("No scores to report!"); return end
-	local sorted = {}
-	for name, score in pairs(TR_Scores) do table.insert(sorted, { name=name, score=score }) end
-	table.sort(sorted, function(a,b) return a.score > b.score end)
-	ChatMsg("--- Trivia Scores ---")
-	for i, entry in ipairs(sorted) do
-		local msg = tostring(i)..". "..entry.name..": "..tostring(entry.score).." pts"
-		ChatMsg(msg)
-	end
-end
-
-function TR_EndGame()
-	TR_Active = false; TR_WaitingForAnswers = false; TR_TimerActive = false
-	ChatMsg("TRIVIA GAME OVER!")
-	TR_ReportScores()
-	TR_Scores = {}; TR_CurrentRound = 0; TR_UsedQuestions = {}
-	if PhantomGamble_TR_StartBtn then PhantomGamble_TR_StartBtn:SetText("Start Trivia"); PhantomGamble_TR_StartBtn:Enable() end
-	if PhantomGamble_TR_AskBtn then PhantomGamble_TR_AskBtn:Disable() end
-	if PhantomGamble_TR_CancelBtn then PhantomGamble_TR_CancelBtn:Disable() end
-	TR_UpdateStatus()
-end
-
-local function TR_EndRound()
-	TR_WaitingForAnswers = false; TR_TimerActive = false
-	local msg = "Time's up! The answer was: "..TR_CurrentAnswer
-	ChatMsg(msg)
-	TR_AwardPoints()
-	TR_CurrentQuestion = nil; TR_CurrentAnswer = nil; TR_CurrentAltAnswers = nil; TR_AnswerOrder = {}
-	TR_UpdateStatus()
-	if TR_CurrentRound >= TR_TotalRounds then TR_EndGame()
-	else if PhantomGamble_TR_AskBtn then PhantomGamble_TR_AskBtn:Enable() end end
-end
-
-function PhantomGamble_TR_Start()
-	TR_Active = true; TR_CurrentRound = 0; TR_Scores = {}; TR_UsedQuestions = {}; TR_AnswerOrder = {}; TR_WaitingForAnswers = false
-	PhantomGamble["lastTRRounds"] = TR_TotalRounds; PhantomGamble["lastTRExpansion"] = TR_SelectedExpansion
-	local msg = "PhantomGamble TRIVIA! "..tostring(TR_TotalRounds).." rounds - "..TR_SelectedExpansion.." - Answer in chat!"
-	ChatMsg(msg)
-	PhantomGamble_TR_StartBtn:SetText("In Progress..."); PhantomGamble_TR_StartBtn:Disable()
-	PhantomGamble_TR_AskBtn:Enable(); PhantomGamble_TR_CancelBtn:Enable()
-	TR_UpdateStatus()
-end
-
-function PhantomGamble_TR_AskQuestion()
-	if not TR_Active then return end
-	if TR_WaitingForAnswers then Print("","","A question is still active!"); return end
-	TR_CurrentRound = TR_CurrentRound + 1
-	local picked = TR_PickQuestion()
-	if not picked then Print("","","No questions available!"); TR_EndGame(); return end
-	TR_CurrentQuestion = picked.question.q; TR_CurrentAnswer = picked.question.a; TR_CurrentAltAnswers = picked.question.alt
-	TR_AnswerOrder = {}; TR_WaitingForAnswers = true; TR_QuestionTimer = TR_AnswerTimeout; TR_TimerActive = true
-	local msg = "[Round "..tostring(TR_CurrentRound).."/"..tostring(TR_TotalRounds).."] ("..picked.expansion..") "..TR_CurrentQuestion
-	ChatMsg(msg)
-	PhantomGamble_TR_AskBtn:Disable(); TR_UpdateStatus()
-end
-
-function PhantomGamble_TR_Cancel()
-	TR_Active = false; TR_WaitingForAnswers = false; TR_TimerActive = false; TR_Scores = {}; TR_CurrentRound = 0; TR_UsedQuestions = {}
-	ChatMsg("Trivia has been cancelled.")
-	PhantomGamble_TR_StartBtn:SetText("Start Trivia"); PhantomGamble_TR_StartBtn:Enable()
-	PhantomGamble_TR_AskBtn:Disable(); PhantomGamble_TR_CancelBtn:Disable()
-	TR_UpdateStatus()
-end
-
-function PhantomGamble_TR_ParseChat(msg, sender)
-	if not TR_Active or not TR_WaitingForAnswers then return end
-	for _, name in ipairs(TR_AnswerOrder) do
-		if string.lower(name) == string.lower(sender) then return end
-	end
-	if TR_CheckAnswer(msg) then
-		table.insert(TR_AnswerOrder, sender)
-		if whispermethod then
-			local wmsg = "Correct! You win "..tostring(TR_PointsPerQuestion).." pts!"
-			SendChatMessage(wmsg, "WHISPER", nil, sender)
-		end
-		Print("", "", sender .. " answered correctly first!")
-		TR_EndRound()
-	end
-end
-
--- ============================================
--- STATS WINDOW
--- ============================================
-local function CreateStatsWindow()
-	local f = CreateFrame("Frame", "PhantomGamble_StatsFrame", UIParent)
-	f:SetWidth(280); f:SetHeight(350); f:SetPoint("LEFT", PhantomGamble_Frame, "RIGHT", 10, 0)
-	f:SetMovable(true); f:SetResizable(true); f:EnableMouse(true); f:SetFrameStrata("DIALOG")
-	f:SetMinResize(250, 200); f:SetMaxResize(450, 500)
-	local bg = f:CreateTexture(nil,"BACKGROUND"); bg:SetTexture(0,0,0,0.85); bg:SetAllPoints(f)
-	for _,side in ipairs({"TOP","BOTTOM","LEFT","RIGHT"}) do
-		local b = f:CreateTexture(nil,"BORDER"); b:SetTexture(0.6,0.6,0.6,1)
-		if side=="TOP" or side=="BOTTOM" then b:SetHeight(2) else b:SetWidth(2) end
-		if side=="TOP" then b:SetPoint("TOPLEFT",f,"TOPLEFT",0,0); b:SetPoint("TOPRIGHT",f,"TOPRIGHT",0,0)
-		elseif side=="BOTTOM" then b:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",0,0); b:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",0,0)
-		elseif side=="LEFT" then b:SetPoint("TOPLEFT",f,"TOPLEFT",0,0); b:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",0,0)
-		else b:SetPoint("TOPRIGHT",f,"TOPRIGHT",0,0); b:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",0,0) end
-	end
-	local tb = f:CreateTexture(nil,"ARTWORK"); tb:SetTexture(0.2,0.2,0.4,1); tb:SetHeight(24); tb:SetPoint("TOPLEFT",f,"TOPLEFT",2,-2); tb:SetPoint("TOPRIGHT",f,"TOPRIGHT",-2,-2)
-	local t = f:CreateFontString(nil,"OVERLAY","GameFontNormal"); t:SetPoint("TOP",f,"TOP",0,-8); t:SetText("|cffFFD700Gambling Stats|r")
-	f:SetScript("OnMouseDown", function() if arg1=="LeftButton" then this:StartMoving() end end)
-	f:SetScript("OnMouseUp", function() this:StopMovingOrSizing() end)
-	local cb = CreateFrame("Button","PhantomGamble_StatsCloseButton",f,"UIPanelCloseButton"); cb:SetPoint("TOPRIGHT",f,"TOPRIGHT",-2,-2); cb:SetScript("OnClick", function() PhantomGamble_StatsFrame:Hide() end)
-	local sf = CreateFrame("ScrollFrame","PhantomGamble_StatsScrollFrame",f); sf:SetPoint("TOPLEFT",f,"TOPLEFT",10,-30); sf:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-30,60); sf:EnableMouseWheel(true)
-	local sc = CreateFrame("Frame","PhantomGamble_StatsScrollChild",sf); sc:SetWidth(240); sc:SetHeight(1); sf:SetScrollChild(sc)
-	local sb = CreateFrame("Slider","PhantomGamble_StatsScrollBar",sf); sb:SetPoint("TOPLEFT",sf,"TOPRIGHT",2,-16); sb:SetPoint("BOTTOMLEFT",sf,"BOTTOMRIGHT",2,16); sb:SetWidth(16); sb:SetOrientation("VERTICAL"); sb:SetMinMaxValues(0,1); sb:SetValueStep(1); sb:SetValue(0)
-	local sbbg = sb:CreateTexture(nil,"BACKGROUND"); sbbg:SetAllPoints(sb); sbbg:SetTexture(0,0,0,0.5)
-	local th = sb:CreateTexture(nil,"OVERLAY"); th:SetTexture(0.5,0.5,0.5,1); th:SetWidth(14); th:SetHeight(30); sb:SetThumbTexture(th)
-	sb:SetScript("OnValueChanged", function() sf:SetVerticalScroll(this:GetValue()) end)
-	sf:SetScript("OnMouseWheel", function() local c=sb:GetValue(); local mn,mx=sb:GetMinMaxValues(); local s=STATS_LINE_HEIGHT*3; if arg1>0 then sb:SetValue(math.max(mn,c-s)) else sb:SetValue(math.min(mx,c+s)) end end)
-	local bh = 20; local bs = 2
-	local b1 = CreateFrame("Button","PhantomGamble_StatsTop5Btn",f,"GameMenuButtonTemplate"); b1:SetWidth(45); b1:SetHeight(bh); b1:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",5,35); b1:SetText("Top 5"); b1:SetScript("OnClick", function() ReportStats(5,false) end)
-	local b2 = CreateFrame("Button","PhantomGamble_StatsTop10Btn",f,"GameMenuButtonTemplate"); b2:SetWidth(45); b2:SetHeight(bh); b2:SetPoint("LEFT",b1,"RIGHT",bs,0); b2:SetText("Top 10"); b2:SetScript("OnClick", function() ReportStats(10,false) end)
-	local b3 = CreateFrame("Button","PhantomGamble_StatsTop15Btn",f,"GameMenuButtonTemplate"); b3:SetWidth(45); b3:SetHeight(bh); b3:SetPoint("LEFT",b2,"RIGHT",bs,0); b3:SetText("Top 15"); b3:SetScript("OnClick", function() ReportStats(15,false) end)
-	local b4 = CreateFrame("Button","PhantomGamble_StatsBot5Btn",f,"GameMenuButtonTemplate"); b4:SetWidth(45); b4:SetHeight(bh); b4:SetPoint("LEFT",b3,"RIGHT",bs,0); b4:SetText("Bot 5"); b4:SetScript("OnClick", function() ReportStats(5,true) end)
-	local b5 = CreateFrame("Button","PhantomGamble_StatsLastBtn",f,"GameMenuButtonTemplate"); b5:SetWidth(45); b5:SetHeight(bh); b5:SetPoint("LEFT",b4,"RIGHT",bs,0); b5:SetText("Last"); b5:SetScript("OnClick", function() ReportStats(1,true) end)
-	local rb = CreateFrame("Button","PhantomGamble_StatsResetBtn",f,"GameMenuButtonTemplate"); rb:SetWidth(80); rb:SetHeight(bh); rb:SetPoint("BOTTOM",f,"BOTTOM",0,10); rb:SetText("Reset Stats"); rb:SetScript("OnClick", function() PhantomGamble["stats"]={}; statsNeedUpdate=true; RefreshStatsDisplay(); Print("","","Stats have been reset.") end)
-	local rz = CreateFrame("Button",nil,f); rz:SetWidth(16); rz:SetHeight(16); rz:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-2,2); rz:EnableMouse(true)
-	local rzt = rz:CreateTexture(nil,"OVERLAY"); rzt:SetTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Up"); rzt:SetAllPoints(rz)
-	rz:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
-	rz:SetScript("OnMouseUp", function() f:StopMovingOrSizing(); UpdateStatsWindowLayout(); PhantomGamble_StatsScrollChild:SetWidth(PhantomGamble_StatsScrollFrame:GetWidth()); RefreshStatsDisplay() end)
-	rz:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_TOPLEFT"); GameTooltip:SetText("Drag to resize"); GameTooltip:Show() end)
-	rz:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	f:SetScript("OnSizeChanged", function() UpdateStatsWindowLayout(); local w=PhantomGamble_StatsScrollFrame:GetWidth(); if w and w>0 then PhantomGamble_StatsScrollChild:SetWidth(w) end end)
-	f:SetScript("OnShow", function() statsNeedUpdate=true; this:SetScript("OnUpdate", function() this:SetScript("OnUpdate",nil); local w=PhantomGamble_StatsScrollFrame:GetWidth(); if w and w>0 then PhantomGamble_StatsScrollChild:SetWidth(w) end; RefreshStatsDisplay() end) end)
-	f:Hide(); return f
-end
-
--- ============================================
--- DEBTS WINDOW
--- ============================================
-local function CreateDebtsWindow()
-	local f = CreateFrame("Frame","PhantomGamble_DebtsFrame",UIParent)
-	f:SetWidth(300); f:SetHeight(300); f:SetPoint("LEFT",PhantomGamble_Frame,"RIGHT",10,0)
-	f:SetMovable(true); f:SetResizable(true); f:EnableMouse(true); f:SetFrameStrata("DIALOG"); f:SetMinResize(250,200); f:SetMaxResize(450,500)
-	local bg = f:CreateTexture(nil,"BACKGROUND"); bg:SetTexture(0,0,0,0.85); bg:SetAllPoints(f)
-	for _,side in ipairs({"TOP","BOTTOM","LEFT","RIGHT"}) do
-		local b = f:CreateTexture(nil,"BORDER"); b:SetTexture(0.6,0.6,0.6,1)
-		if side=="TOP" or side=="BOTTOM" then b:SetHeight(2) else b:SetWidth(2) end
-		if side=="TOP" then b:SetPoint("TOPLEFT",f,"TOPLEFT",0,0); b:SetPoint("TOPRIGHT",f,"TOPRIGHT",0,0)
-		elseif side=="BOTTOM" then b:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",0,0); b:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",0,0)
-		elseif side=="LEFT" then b:SetPoint("TOPLEFT",f,"TOPLEFT",0,0); b:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",0,0)
-		else b:SetPoint("TOPRIGHT",f,"TOPRIGHT",0,0); b:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",0,0) end
-	end
-	local tb = f:CreateTexture(nil,"ARTWORK"); tb:SetTexture(0.4,0.2,0.2,1); tb:SetHeight(24); tb:SetPoint("TOPLEFT",f,"TOPLEFT",2,-2); tb:SetPoint("TOPRIGHT",f,"TOPRIGHT",-2,-2)
-	local t = f:CreateFontString(nil,"OVERLAY","GameFontNormal"); t:SetPoint("TOP",f,"TOP",0,-8); t:SetText("|cffFF6600Outstanding Debts|r")
-	f:SetScript("OnMouseDown", function() if arg1=="LeftButton" then this:StartMoving() end end)
-	f:SetScript("OnMouseUp", function() this:StopMovingOrSizing() end)
-	local cb = CreateFrame("Button",nil,f,"UIPanelCloseButton"); cb:SetPoint("TOPRIGHT",f,"TOPRIGHT",-2,-2); cb:SetScript("OnClick", function() PhantomGamble_DebtsFrame:Hide() end)
-	local inst = f:CreateFontString(nil,"OVERLAY","GameFontNormalSmall"); inst:SetPoint("TOP",f,"TOP",0,-28); inst:SetWidth(280); inst:SetText("|cffffff00Type '!paid Name GoldAmount' in chat to confirm payment|r")
-	local sf = CreateFrame("ScrollFrame","PhantomGamble_DebtsScrollFrame",f); sf:SetPoint("TOPLEFT",f,"TOPLEFT",10,-45); sf:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-30,40); sf:EnableMouseWheel(true)
-	local sc = CreateFrame("Frame","PhantomGamble_DebtsScrollChild",sf); sc:SetWidth(260); sc:SetHeight(1); sf:SetScrollChild(sc)
-	local sb = CreateFrame("Slider","PhantomGamble_DebtsScrollBar",sf); sb:SetPoint("TOPLEFT",sf,"TOPRIGHT",2,-16); sb:SetPoint("BOTTOMLEFT",sf,"BOTTOMRIGHT",2,16); sb:SetWidth(16); sb:SetOrientation("VERTICAL"); sb:SetMinMaxValues(0,1); sb:SetValueStep(1); sb:SetValue(0)
-	local sbbg = sb:CreateTexture(nil,"BACKGROUND"); sbbg:SetAllPoints(sb); sbbg:SetTexture(0,0,0,0.5)
-	local th = sb:CreateTexture(nil,"OVERLAY"); th:SetTexture(0.5,0.5,0.5,1); th:SetWidth(14); th:SetHeight(30); sb:SetThumbTexture(th)
-	sb:SetScript("OnValueChanged", function() sf:SetVerticalScroll(this:GetValue()) end)
-	sf:SetScript("OnMouseWheel", function() local c=sb:GetValue(); local mn,mx=sb:GetMinMaxValues(); local s=STATS_LINE_HEIGHT*3; if arg1>0 then sb:SetValue(math.max(mn,c-s)) else sb:SetValue(math.min(mx,c+s)) end end)
-	local rpb = CreateFrame("Button",nil,f,"GameMenuButtonTemplate"); rpb:SetWidth(100); rpb:SetHeight(20); rpb:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",10,10); rpb:SetText("Report Debts"); rpb:SetScript("OnClick", function() ReportDebts() end)
-	local clb = CreateFrame("Button",nil,f,"GameMenuButtonTemplate"); clb:SetWidth(100); clb:SetHeight(20); clb:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-25,10); clb:SetText("Clear All Debts"); clb:SetScript("OnClick", function() PhantomGamble["debts"]={}; debtsNeedUpdate=true; RefreshDebtsDisplay(); Print("","","All debts cleared.") end)
-	local rz = CreateFrame("Button",nil,f); rz:SetWidth(16); rz:SetHeight(16); rz:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-2,2); rz:EnableMouse(true)
-	local rzt = rz:CreateTexture(nil,"OVERLAY"); rzt:SetTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Up"); rzt:SetAllPoints(rz)
-	rz:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
-	rz:SetScript("OnMouseUp", function() f:StopMovingOrSizing(); PhantomGamble_DebtsScrollChild:SetWidth(PhantomGamble_DebtsScrollFrame:GetWidth()); RefreshDebtsDisplay() end)
-	rz:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_TOPLEFT"); GameTooltip:SetText("Drag to resize"); GameTooltip:Show() end)
-	rz:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	f:SetScript("OnSizeChanged", function() local w=PhantomGamble_DebtsScrollFrame:GetWidth(); if w and w>0 then PhantomGamble_DebtsScrollChild:SetWidth(w) end end)
-	f:SetScript("OnShow", function() debtsNeedUpdate=true; this:SetScript("OnUpdate", function() this:SetScript("OnUpdate",nil); local w=PhantomGamble_DebtsScrollFrame:GetWidth(); if w and w>0 then PhantomGamble_DebtsScrollChild:SetWidth(w) end; RefreshDebtsDisplay() end) end)
-	f:Hide(); return f
-end
-
--- ============================================
--- MODE SWITCHING
--- ============================================
-local function ShowMode(mode)
-	currentMode = mode
-	-- [MODIFIED] Added PhantomGamble_GoldLabel, PhantomGamble_SilverLabel, PhantomGamble_SilverEditBox
-	local regEls = {
-		"PhantomGamble_RegularTitle",
-		"PhantomGamble_GoldLabel",
-		"PhantomGamble_EditBox",
-		"PhantomGamble_SilverLabel",
-		"PhantomGamble_SilverEditBox",
-		"PhantomGamble_AcceptOnes_Button",
-		"PhantomGamble_LASTCALL_Button",
-		"PhantomGamble_ROLL_Button",
-		"PhantomGamble_WHONEEDS_Button",
-		"PhantomGamble_Cancel_Button"
-	}
-	local trEls = {"PhantomGamble_TRTitle","PhantomGamble_TR_RoundsLabel","PhantomGamble_TR_RoundsSelect","PhantomGamble_TR_RoundsDropdown","PhantomGamble_TR_ExpLabel","PhantomGamble_TR_ExpSelect","PhantomGamble_TR_ExpDropdown","PhantomGamble_TR_StartBtn","PhantomGamble_TR_AskBtn","PhantomGamble_TR_CancelBtn","PhantomGamble_TR_Status"}
-	for _,n in ipairs(regEls) do local fr=getglobal(n); if fr then fr:Hide() end end
-	for _,n in ipairs(trEls) do local fr=getglobal(n); if fr then fr:Hide() end end
-	if PhantomGamble_ModeDropdown then PhantomGamble_ModeDropdown:Hide() end
-	if mode == 1 then
-		for _,n in ipairs(regEls) do local fr=getglobal(n); if fr then fr:Show() end end
-		if PhantomGamble_ModeBtnText then PhantomGamble_ModeBtnText:SetText("|cff00ff00Regular Gamble|r") end
-	elseif mode == 2 then
-		for _,n in ipairs(trEls) do local fr=getglobal(n); if fr then fr:Show() end end
-		if PhantomGamble_TR_ExpDropdown then PhantomGamble_TR_ExpDropdown:Hide() end
-		if PhantomGamble_TR_RoundsDropdown then PhantomGamble_TR_RoundsDropdown:Hide() end
-		if PhantomGamble_ModeBtnText then PhantomGamble_ModeBtnText:SetText("|cffffff00Trivia|r") end
-	end
-end
-
--- ============================================
--- MAIN FRAME CREATION
--- ============================================
-local function CreateMainFrame()
-	local f = CreateFrame("Frame","PhantomGamble_Frame",UIParent)
-	f:SetWidth(300); f:SetHeight(310); f:SetPoint("CENTER",UIParent,"CENTER",0,0)
-	f:SetMovable(true); f:SetResizable(true); f:EnableMouse(true); f:SetFrameStrata("DIALOG")
-	f:SetMinResize(280,290); f:SetMaxResize(480,460)
-	local bg = f:CreateTexture(nil,"BACKGROUND"); bg:SetTexture(0,0,0,0.85); bg:SetAllPoints(f)
-	for _,side in ipairs({"TOP","BOTTOM","LEFT","RIGHT"}) do
-		local b = f:CreateTexture(nil,"BORDER"); b:SetTexture(0.6,0.6,0.6,1)
-		if side=="TOP" or side=="BOTTOM" then b:SetHeight(2) else b:SetWidth(2) end
-		if side=="TOP" then b:SetPoint("TOPLEFT",f,"TOPLEFT",0,0); b:SetPoint("TOPRIGHT",f,"TOPRIGHT",0,0)
-		elseif side=="BOTTOM" then b:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",0,0); b:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",0,0)
-		elseif side=="LEFT" then b:SetPoint("TOPLEFT",f,"TOPLEFT",0,0); b:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",0,0)
-		else b:SetPoint("TOPRIGHT",f,"TOPRIGHT",0,0); b:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",0,0) end
-	end
-	-- Title bar
-	local tb = f:CreateTexture(nil,"ARTWORK"); tb:SetTexture(0.2,0.2,0.4,1); tb:SetHeight(24); tb:SetPoint("TOPLEFT",f,"TOPLEFT",2,-2); tb:SetPoint("TOPRIGHT",f,"TOPRIGHT",-2,-2)
-	local title = f:CreateFontString(nil,"OVERLAY","GameFontNormal"); title:SetPoint("TOPLEFT",f,"TOPLEFT",52,-8); title:SetText("|cffFFD700PhantomGamble|r")
-
-	-- Warning button
-	local wb = CreateFrame("Button","PhantomGamble_WarningButton",f); wb:SetWidth(60); wb:SetHeight(16); wb:SetPoint("LEFT",title,"RIGHT",8,0)
-	local wbt = wb:CreateFontString(nil,"OVERLAY","GameFontNormalSmall"); wbt:SetPoint("LEFT",wb,"LEFT",0,0); wbt:SetText("|cffff0000[Warning]|r")
-	wb:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
-	wb:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_BOTTOM"); GameTooltip:SetText("|cffff0000Gambling Restriction|r"); GameTooltip:AddLine("Bilgewater Cartel cities only:",1,0.82,0); GameTooltip:AddLine("Ratchet, Booty Bay, Everlook, Gadgetzan",0.5,1,0.5); GameTooltip:Show() end)
-	wb:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	wb:SetScript("OnClick", function() DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[PhantomGamble Warning]|r Bilgewater Cartel cities only: |cff00ff00Ratchet, Booty Bay, Everlook, Gadgetzan|r") end)
-
-	f:SetScript("OnMouseDown", function() if arg1=="LeftButton" then this:StartMoving() end end)
-	f:SetScript("OnMouseUp", function() this:StopMovingOrSizing() end)
-
-	-- Stats button
-	local sb = CreateFrame("Button","PhantomGamble_StatsButton",f); sb:SetWidth(20); sb:SetHeight(20); sb:SetPoint("TOPLEFT",f,"TOPLEFT",5,-5)
-	local sbbg = sb:CreateTexture(nil,"BACKGROUND"); sbbg:SetTexture(0.3,0.3,0.5,1); sbbg:SetAllPoints(sb)
-	local sbt = sb:CreateFontString(nil,"OVERLAY","GameFontNormalSmall"); sbt:SetPoint("CENTER",sb,"CENTER",0,0); sbt:SetText("|cffFFD700S|r")
-	sb:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
-	sb:SetScript("OnClick", function() if not PhantomGamble_StatsFrame then CreateStatsWindow() end; if PhantomGamble_StatsFrame:IsVisible() then PhantomGamble_StatsFrame:Hide() else PhantomGamble_StatsFrame:Show() end end)
-	sb:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_RIGHT"); GameTooltip:SetText("Gambling Stats"); GameTooltip:Show() end)
-	sb:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-	-- Debts button
-	local db = CreateFrame("Button","PhantomGamble_DebtsButton",f); db:SetWidth(20); db:SetHeight(20); db:SetPoint("LEFT",sb,"RIGHT",3,0)
-	local dbbg = db:CreateTexture(nil,"BACKGROUND"); dbbg:SetTexture(0.5,0.3,0.3,1); dbbg:SetAllPoints(db)
-	local dbt = db:CreateFontString(nil,"OVERLAY","GameFontNormalSmall"); dbt:SetPoint("CENTER",db,"CENTER",0,0); dbt:SetText("|cffFF6600D|r")
-	db:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
-	db:SetScript("OnClick", function() if not PhantomGamble_DebtsFrame then CreateDebtsWindow() end; if PhantomGamble_DebtsFrame:IsVisible() then PhantomGamble_DebtsFrame:Hide() else PhantomGamble_DebtsFrame:Show() end end)
-	db:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_RIGHT"); GameTooltip:SetText("Outstanding Debts"); GameTooltip:Show() end)
-	db:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-	-- Close button
-	local xb = CreateFrame("Button","PhantomGamble_CloseButton",f,"UIPanelCloseButton"); xb:SetPoint("TOPRIGHT",f,"TOPRIGHT",-2,-2); xb:SetScript("OnClick", function() PhantomGamble_SlashCmd("hide") end)
-
-	-- Mode selector dropdown button
-	local mb = CreateFrame("Button","PhantomGamble_ModeBtn",f); mb:SetWidth(90); mb:SetHeight(18); mb:SetPoint("RIGHT",xb,"LEFT",-4,0)
-	local mbbg = mb:CreateTexture(nil,"BACKGROUND"); mbbg:SetTexture(0.15,0.15,0.15,0.9); mbbg:SetAllPoints(mb)
-	local mbBorderT = mb:CreateTexture(nil,"BORDER"); mbBorderT:SetTexture(0.5,0.5,0.5,1); mbBorderT:SetHeight(1); mbBorderT:SetPoint("TOPLEFT",mb,"TOPLEFT",0,0); mbBorderT:SetPoint("TOPRIGHT",mb,"TOPRIGHT",0,0)
-	local mbBorderB = mb:CreateTexture(nil,"BORDER"); mbBorderB:SetTexture(0.5,0.5,0.5,1); mbBorderB:SetHeight(1); mbBorderB:SetPoint("BOTTOMLEFT",mb,"BOTTOMLEFT",0,0); mbBorderB:SetPoint("BOTTOMRIGHT",mb,"BOTTOMRIGHT",0,0)
-	local mbBorderL = mb:CreateTexture(nil,"BORDER"); mbBorderL:SetTexture(0.5,0.5,0.5,1); mbBorderL:SetWidth(1); mbBorderL:SetPoint("TOPLEFT",mb,"TOPLEFT",0,0); mbBorderL:SetPoint("BOTTOMLEFT",mb,"BOTTOMLEFT",0,0)
-	local mbBorderR = mb:CreateTexture(nil,"BORDER"); mbBorderR:SetTexture(0.5,0.5,0.5,1); mbBorderR:SetWidth(1); mbBorderR:SetPoint("TOPRIGHT",mb,"TOPRIGHT",0,0); mbBorderR:SetPoint("BOTTOMRIGHT",mb,"BOTTOMRIGHT",0,0)
-	local mbt = mb:CreateFontString("PhantomGamble_ModeBtnText","OVERLAY","GameFontHighlightSmall"); mbt:SetPoint("CENTER",mb,"CENTER",-6,0); mbt:SetText("|cff00ff00Regular Gamble|r")
-	local mba = mb:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); mba:SetPoint("RIGHT",mb,"RIGHT",-3,0); mba:SetText("v")
-	mb:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
-
-	-- Mode dropdown
-	local modeDD = CreateFrame("Frame","PhantomGamble_ModeDropdown",f); modeDD:SetWidth(90); modeDD:SetHeight(38); modeDD:SetPoint("TOP",mb,"BOTTOM",0,0); modeDD:SetFrameStrata("TOOLTIP"); modeDD:Hide()
-	local modeDDBg = modeDD:CreateTexture(nil,"BACKGROUND"); modeDDBg:SetTexture(0,0,0,0.95); modeDDBg:SetAllPoints(modeDD)
-	local modeDDBorderT = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderT:SetTexture(0.5,0.5,0.5,1); modeDDBorderT:SetHeight(1); modeDDBorderT:SetPoint("TOPLEFT",modeDD,"TOPLEFT",-1,0); modeDDBorderT:SetPoint("TOPRIGHT",modeDD,"TOPRIGHT",1,0)
-	local modeDDBorderB = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderB:SetTexture(0.5,0.5,0.5,1); modeDDBorderB:SetHeight(1); modeDDBorderB:SetPoint("BOTTOMLEFT",modeDD,"BOTTOMLEFT",-1,0); modeDDBorderB:SetPoint("BOTTOMRIGHT",modeDD,"BOTTOMRIGHT",1,0)
-	local modeDDBorderL = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderL:SetTexture(0.5,0.5,0.5,1); modeDDBorderL:SetWidth(1); modeDDBorderL:SetPoint("TOPLEFT",modeDD,"TOPLEFT",-1,0); modeDDBorderL:SetPoint("BOTTOMLEFT",modeDD,"BOTTOMLEFT",-1,0)
-	local modeDDBorderR = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderR:SetTexture(0.5,0.5,0.5,1); modeDDBorderR:SetWidth(1); modeDDBorderR:SetPoint("TOPRIGHT",modeDD,"TOPRIGHT",1,0); modeDDBorderR:SetPoint("BOTTOMRIGHT",modeDD,"BOTTOMRIGHT",1,0)
-
-	local modeColors = { "|cff00ff00", "|cffffff00" }
-	for i, modeName in ipairs(modeNames) do
-		local optBtn = CreateFrame("Button","PhantomGamble_ModeOpt"..i,modeDD); optBtn:SetWidth(88); optBtn:SetHeight(17); optBtn:SetPoint("TOP",modeDD,"TOP",0,-1-((i-1)*18))
-		local optText = optBtn:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); optText:SetPoint("CENTER",optBtn,"CENTER",0,0); optText:SetText(modeColors[i]..modeName.."|r")
-		optBtn:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight"); optBtn.modeIndex = i
-		optBtn:SetScript("OnClick", function() currentMode = this.modeIndex; ShowMode(currentMode); modeDD:Hide() end)
-	end
-	mb:SetScript("OnClick", function() if modeDD:IsVisible() then modeDD:Hide() else modeDD:Show() end end)
-	mb:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_LEFT"); GameTooltip:SetText("|cffFFD700Game Mode|r"); GameTooltip:AddLine("Select which game to play",0.7,0.7,0.7); GameTooltip:Show() end)
-	mb:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-	local cTop = -30
-
-	-- ==========================================
-	-- PANEL 1: Regular Gambling
-	-- ==========================================
-	-- Title: centered at top of content area
-	local rt = f:CreateFontString("PhantomGamble_RegularTitle","OVERLAY","GameFontNormalSmall")
-	rt:SetPoint("TOP",f,"TOP",0,cTop)
-	rt:SetText("|cff00ff00Regular Gamble|r")
-
-	-- Input row: Gold label + editbox + Silver label + editbox, centered as a unit.
-	-- Row total width ≈ 34+4+70+8+38+4+46 = 204px; anchor start at CENTER-102.
-
-	local goldLabel = f:CreateFontString("PhantomGamble_GoldLabel","OVERLAY","GameFontNormalSmall")
-	goldLabel:SetPoint("TOP", rt, "BOTTOM", 0, -10)
-	goldLabel:SetPoint("CENTER", f, "CENTER", -102, -52)
-	goldLabel:SetText("|cffFFD700Gold:|r")
-	goldLabel:SetJustifyH("LEFT")
-
-	-- Gold EditBox (width 70, centered to the right of the gold label)
-	local eb = CreateFrame("EditBox","PhantomGamble_EditBox",f)
-	eb:SetWidth(70); eb:SetHeight(22)
-	eb:SetPoint("LEFT", goldLabel, "RIGHT", 4, 0)
-	eb:SetFontObject(ChatFontNormal); eb:SetAutoFocus(false); eb:SetNumeric(true); eb:SetMaxLetters(6); eb:SetJustifyH("CENTER")
-	eb:SetScript("OnEscapePressed", function() this:ClearFocus() end)
-	eb:SetScript("OnEnterPressed", function() this:ClearFocus() end)
-	local ebbg = eb:CreateTexture(nil,"BACKGROUND"); ebbg:SetTexture(0.1,0.1,0.1,0.8); ebbg:SetAllPoints(eb)
-	local ebBT = eb:CreateTexture(nil,"BORDER"); ebBT:SetTexture(0.4,0.4,0.4,1); ebBT:SetHeight(1); ebBT:SetPoint("TOPLEFT",eb,"TOPLEFT"); ebBT:SetPoint("TOPRIGHT",eb,"TOPRIGHT")
-	local ebBB = eb:CreateTexture(nil,"BORDER"); ebBB:SetTexture(0.4,0.4,0.4,1); ebBB:SetHeight(1); ebBB:SetPoint("BOTTOMLEFT",eb,"BOTTOMLEFT"); ebBB:SetPoint("BOTTOMRIGHT",eb,"BOTTOMRIGHT")
-	local ebBL = eb:CreateTexture(nil,"BORDER"); ebBL:SetTexture(0.4,0.4,0.4,1); ebBL:SetWidth(1); ebBL:SetPoint("TOPLEFT",eb,"TOPLEFT"); ebBL:SetPoint("BOTTOMLEFT",eb,"BOTTOMLEFT")
-	local ebBR = eb:CreateTexture(nil,"BORDER"); ebBR:SetTexture(0.4,0.4,0.4,1); ebBR:SetWidth(1); ebBR:SetPoint("TOPRIGHT",eb,"TOPRIGHT"); ebBR:SetPoint("BOTTOMRIGHT",eb,"BOTTOMRIGHT")
-
-	-- Silver label + editbox (optional, 0-99), to the right of the gold editbox
-	local silverLabel = f:CreateFontString("PhantomGamble_SilverLabel","OVERLAY","GameFontNormalSmall")
-	silverLabel:SetPoint("LEFT", eb, "RIGHT", 8, 0)
-	silverLabel:SetText("|cffC0C0C0Silver:|r")
-	silverLabel:SetJustifyH("LEFT")
-
-	local seb = CreateFrame("EditBox","PhantomGamble_SilverEditBox",f)
-	seb:SetWidth(46); seb:SetHeight(22)
-	seb:SetPoint("LEFT", silverLabel, "RIGHT", 4, 0)
-	seb:SetPoint("TOP", eb, "TOP", 0, 0)
-	seb:SetFontObject(ChatFontNormal); seb:SetAutoFocus(false); seb:SetNumeric(true); seb:SetMaxLetters(2); seb:SetJustifyH("CENTER")
-	seb:SetScript("OnEscapePressed", function() this:ClearFocus() end)
-	seb:SetScript("OnEnterPressed", function() this:ClearFocus() end)
-	local sebbg = seb:CreateTexture(nil,"BACKGROUND"); sebbg:SetTexture(0.1,0.1,0.1,0.8); sebbg:SetAllPoints(seb)
-	local sebBT = seb:CreateTexture(nil,"BORDER"); sebBT:SetTexture(0.4,0.4,0.4,1); sebBT:SetHeight(1); sebBT:SetPoint("TOPLEFT",seb,"TOPLEFT"); sebBT:SetPoint("TOPRIGHT",seb,"TOPRIGHT")
-	local sebBB = seb:CreateTexture(nil,"BORDER"); sebBB:SetTexture(0.4,0.4,0.4,1); sebBB:SetHeight(1); sebBB:SetPoint("BOTTOMLEFT",seb,"BOTTOMLEFT"); sebBB:SetPoint("BOTTOMRIGHT",seb,"BOTTOMRIGHT")
-	local sebBL = seb:CreateTexture(nil,"BORDER"); sebBL:SetTexture(0.4,0.4,0.4,1); sebBL:SetWidth(1); sebBL:SetPoint("TOPLEFT",seb,"TOPLEFT"); sebBL:SetPoint("BOTTOMLEFT",seb,"BOTTOMLEFT")
-	local sebBR = seb:CreateTexture(nil,"BORDER"); sebBR:SetTexture(0.4,0.4,0.4,1); sebBR:SetWidth(1); sebBR:SetPoint("TOPRIGHT",seb,"TOPRIGHT"); sebBR:SetPoint("BOTTOMRIGHT",seb,"BOTTOMRIGHT")
-
-	-- Button stack: all centered on the frame, stretch to fill with a fixed margin.
-	-- Using LEFT+RIGHT anchors so they scale when the window is resized.
-	local BH = 22  -- button height
-	local BG = 5   -- gap between buttons
-	local BM = 20  -- left/right margin inside frame
-
-	local ab = CreateFrame("Button","PhantomGamble_AcceptOnes_Button",f,"GameMenuButtonTemplate")
-	ab:SetHeight(BH)
-	ab:SetPoint("TOPLEFT",  f, "TOPLEFT",  BM, -88)
-	ab:SetPoint("TOPRIGHT", f, "TOPRIGHT", -BM, -88)
-	ab:SetText("Open Entry")
-	ab:SetScript("OnClick", function() PhantomGamble_OnClickACCEPTONES() end)
-
-	local lb = CreateFrame("Button","PhantomGamble_LASTCALL_Button",f,"GameMenuButtonTemplate")
-	lb:SetHeight(BH)
-	lb:SetPoint("TOPLEFT",  f, "TOPLEFT",  BM, -88 - (BH+BG))
-	lb:SetPoint("TOPRIGHT", f, "TOPRIGHT", -BM, -88 - (BH+BG))
-	lb:SetText("Last Call")
-	lb:SetScript("OnClick", function() PhantomGamble_OnClickLASTCALL() end)
-	lb:Disable()
-
-	local rlb = CreateFrame("Button","PhantomGamble_ROLL_Button",f,"GameMenuButtonTemplate")
-	rlb:SetHeight(BH)
-	rlb:SetPoint("TOPLEFT",  f, "TOPLEFT",  BM, -88 - (BH+BG)*2)
-	rlb:SetPoint("TOPRIGHT", f, "TOPRIGHT", -BM, -88 - (BH+BG)*2)
-	rlb:SetText("Roll")
-	rlb:SetScript("OnClick", function() PhantomGamble_OnClickROLL() end)
-	rlb:Disable()
-
-	-- [ADDED] Who Needs Roll? — announces remaining players during roll phase
-	local wnb = CreateFrame("Button","PhantomGamble_WHONEEDS_Button",f,"GameMenuButtonTemplate")
-	wnb:SetHeight(BH)
-	wnb:SetPoint("TOPLEFT",  f, "TOPLEFT",  BM, -88 - (BH+BG)*3)
-	wnb:SetPoint("TOPRIGHT", f, "TOPRIGHT", -BM, -88 - (BH+BG)*3)
-	wnb:SetText("Who Needs Roll?")
-	wnb:SetScript("OnClick", function() PhantomGamble_OnClickWHONEEDS() end)
-	wnb:Disable()
-
-	local cnb = CreateFrame("Button","PhantomGamble_Cancel_Button",f,"GameMenuButtonTemplate")
-	cnb:SetHeight(BH)
-	cnb:SetPoint("TOPLEFT",  f, "TOPLEFT",  BM, -88 - (BH+BG)*4)
-	cnb:SetPoint("TOPRIGHT", f, "TOPRIGHT", -BM, -88 - (BH+BG)*4)
-	cnb:SetText("Cancel")
-	cnb:SetScript("OnClick", function() PhantomGamble_OnClickCANCEL() end)
-	cnb:Disable()
-
-	-- ==========================================
-	-- PANEL 2: Trivia
-	-- ==========================================
-	local trt = f:CreateFontString("PhantomGamble_TRTitle","OVERLAY","GameFontNormalSmall"); trt:SetPoint("TOP",f,"TOP",0,cTop); trt:SetText("|cffffff00WoW Trivia|r")
-
-	-- Expansion dropdown
-	local tel = f:CreateFontString("PhantomGamble_TR_ExpLabel","OVERLAY","GameFontNormalSmall"); tel:SetPoint("TOPLEFT",trt,"BOTTOM",-80,-8); tel:SetWidth(50); tel:SetJustifyH("RIGHT"); tel:SetText("|cffffffffExpac:|r")
-	local tes = CreateFrame("Button","PhantomGamble_TR_ExpSelect",f); tes:SetWidth(110); tes:SetHeight(18); tes:SetPoint("LEFT",tel,"RIGHT",5,0)
-	local tesbg = tes:CreateTexture(nil,"BACKGROUND"); tesbg:SetTexture(0.1,0.1,0.1,0.8); tesbg:SetAllPoints(tes)
-	local test = tes:CreateFontString("PhantomGamble_TR_ExpSelectText","OVERLAY","GameFontHighlightSmall"); test:SetPoint("CENTER",tes,"CENTER",-5,0); test:SetText("All")
-	local tesa = tes:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); tesa:SetPoint("RIGHT",tes,"RIGHT",-3,0); tesa:SetText("v")
-	tes:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
-
-	local tedd = CreateFrame("Frame","PhantomGamble_TR_ExpDropdown",f); tedd:SetWidth(140); tedd:SetHeight(table.getn(TriviaExpansions)*18+4); tedd:SetPoint("TOP",tes,"BOTTOM",0,0); tedd:SetFrameStrata("TOOLTIP"); tedd:Hide()
-	local teddbg = tedd:CreateTexture(nil,"BACKGROUND"); teddbg:SetTexture(0,0,0,0.95); teddbg:SetAllPoints(tedd)
-	for i,expName in ipairs(TriviaExpansions) do
-		local ob = CreateFrame("Button","PhantomGamble_TR_ExpOpt"..i,tedd); ob:SetWidth(138); ob:SetHeight(17); ob:SetPoint("TOP",tedd,"TOP",0,-2-((i-1)*18))
-		local ot = ob:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); ot:SetPoint("LEFT",ob,"LEFT",5,0); ot:SetText(expName)
-		ob:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight"); ob.value=expName
-		ob:SetScript("OnClick", function() TR_SelectedExpansion=this.value; PhantomGamble_TR_ExpSelectText:SetText(this.value); tedd:Hide() end)
-	end
-	tes:SetScript("OnClick", function() if tedd:IsVisible() then tedd:Hide() else tedd:Show(); if PhantomGamble_TR_RoundsDropdown then PhantomGamble_TR_RoundsDropdown:Hide() end end end)
-
-	-- Rounds dropdown
-	local trl = f:CreateFontString("PhantomGamble_TR_RoundsLabel","OVERLAY","GameFontNormalSmall"); trl:SetPoint("TOPLEFT",tel,"BOTTOMLEFT",0,-8); trl:SetWidth(50); trl:SetJustifyH("RIGHT"); trl:SetText("|cffffffffRounds:|r")
-	local trs = CreateFrame("Button","PhantomGamble_TR_RoundsSelect",f); trs:SetWidth(50); trs:SetHeight(18); trs:SetPoint("LEFT",trl,"RIGHT",5,0)
-	local trsbg = trs:CreateTexture(nil,"BACKGROUND"); trsbg:SetTexture(0.1,0.1,0.1,0.8); trsbg:SetAllPoints(trs)
-	local trst = trs:CreateFontString("PhantomGamble_TR_RoundsSelectText","OVERLAY","GameFontHighlightSmall"); trst:SetPoint("CENTER",trs,"CENTER",-5,0); trst:SetText("5")
-	local trsa = trs:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); trsa:SetPoint("RIGHT",trs,"RIGHT",-3,0); trsa:SetText("v")
-	trs:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
-
-	local roundOpts = {3,5,10,15,20}
-	local trdd = CreateFrame("Frame","PhantomGamble_TR_RoundsDropdown",f); trdd:SetWidth(50); trdd:SetHeight(table.getn(roundOpts)*20+4); trdd:SetPoint("TOP",trs,"BOTTOM",0,0); trdd:SetFrameStrata("TOOLTIP"); trdd:Hide()
-	local trddbg = trdd:CreateTexture(nil,"BACKGROUND"); trddbg:SetTexture(0,0,0,0.95); trddbg:SetAllPoints(trdd)
-	for i,val in ipairs(roundOpts) do
-		local ob = CreateFrame("Button","PhantomGamble_TR_RoundsOpt"..i,trdd); ob:SetWidth(48); ob:SetHeight(18); ob:SetPoint("TOP",trdd,"TOP",0,-2-((i-1)*20))
-		local ot = ob:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); ot:SetPoint("CENTER",ob,"CENTER",0,0); ot:SetText(tostring(val))
-		ob:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight"); ob.value=val
-		ob:SetScript("OnClick", function() TR_TotalRounds=this.value; PhantomGamble_TR_RoundsSelectText:SetText(tostring(this.value)); trdd:Hide() end)
-	end
-	trs:SetScript("OnClick", function() if trdd:IsVisible() then trdd:Hide() else trdd:Show(); tedd:Hide() end end)
-
-	-- Trivia buttons
-	local tsb = CreateFrame("Button","PhantomGamble_TR_StartBtn",f,"GameMenuButtonTemplate"); tsb:SetWidth(140); tsb:SetHeight(22); tsb:SetPoint("TOP",trt,"BOTTOM",0,-60); tsb:SetText("Start Trivia"); tsb:SetScript("OnClick", function() PhantomGamble_TR_Start() end)
-	local tab = CreateFrame("Button","PhantomGamble_TR_AskBtn",f,"GameMenuButtonTemplate"); tab:SetWidth(140); tab:SetHeight(22); tab:SetPoint("TOP",tsb,"BOTTOM",0,-4); tab:SetText("Ask Question"); tab:SetScript("OnClick", function() PhantomGamble_TR_AskQuestion() end); tab:Disable()
-	local tcb = CreateFrame("Button","PhantomGamble_TR_CancelBtn",f,"GameMenuButtonTemplate"); tcb:SetWidth(140); tcb:SetHeight(22); tcb:SetPoint("TOP",tab,"BOTTOM",0,-4); tcb:SetText("Cancel"); tcb:SetScript("OnClick", function() PhantomGamble_TR_Cancel() end); tcb:Disable()
-	local tst = f:CreateFontString("PhantomGamble_TR_Status","OVERLAY","GameFontNormalSmall"); tst:SetPoint("TOP",tcb,"BOTTOM",0,-8); tst:SetWidth(180); tst:SetText("|cffffff00Waiting...|r")
-
-	-- ==========================================
-	-- BOTTOM - Shared Controls
-	-- ==========================================
-	local chatBtn = CreateFrame("Button","PhantomGamble_CHAT_Button",f,"GameMenuButtonTemplate"); chatBtn:SetWidth(70); chatBtn:SetHeight(20); chatBtn:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",15,30); chatBtn:SetText("RAID"); chatBtn:SetScript("OnClick", function() PhantomGamble_OnClickCHAT() end)
-	local whisperBtn = CreateFrame("Button","PhantomGamble_WHISPER_Button",f,"GameMenuButtonTemplate"); whisperBtn:SetWidth(90); whisperBtn:SetHeight(20); whisperBtn:SetPoint("LEFT",chatBtn,"RIGHT",5,0); whisperBtn:SetText("(No Whispers)"); whisperBtn:SetScript("OnClick", function() PhantomGamble_OnClickWHISPERS() end)
-
-	-- Resize grip
-	local rz = CreateFrame("Button","PhantomGamble_ResizeButton",f); rz:SetWidth(16); rz:SetHeight(16); rz:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-2,2); rz:EnableMouse(true)
-	local rzt = rz:CreateTexture(nil,"OVERLAY"); rzt:SetTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Up"); rzt:SetAllPoints(rz)
-	rz:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
-	rz:SetScript("OnMouseUp", function() f:StopMovingOrSizing() end)
-	rz:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_TOPLEFT"); GameTooltip:SetText("Drag to resize"); GameTooltip:Show() end)
-	rz:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
-	-- Default: show Regular Gamble
-	ShowMode(1)
-	return f
-end
-
--- ============================================
+-------------------------------------------------------------------------------
 -- MINIMAP BUTTON
--- ============================================
-local function CreateMinimapButton()
-	local btn = CreateFrame("Button","PG_MinimapButton",Minimap); btn:SetWidth(32); btn:SetHeight(32); btn:SetFrameStrata("MEDIUM"); btn:SetFrameLevel(8); btn:EnableMouse(true)
-	btn:RegisterForClicks("LeftButtonUp","RightButtonUp"); btn:RegisterForDrag("LeftButton")
-	btn:SetHighlightTexture("Interface/Minimap/UI-Minimap-ZoomButton-Highlight")
-	local icon = btn:CreateTexture(nil,"BACKGROUND"); icon:SetWidth(20); icon:SetHeight(20); icon:SetTexture("Interface/Icons/INV_Misc_Coin_01"); icon:SetPoint("CENTER",btn,"CENTER",0,0)
-	local border = btn:CreateTexture(nil,"OVERLAY"); border:SetWidth(52); border:SetHeight(52); border:SetTexture("Interface/Minimap/MiniMap-TrackingBorder"); border:SetPoint("TOPLEFT",btn,"TOPLEFT",0,0)
-	btn:SetScript("OnClick", function() PG_MinimapButton_OnClick() end)
-	btn:SetScript("OnDragStart", function() this:LockHighlight(); this:SetScript("OnUpdate", PG_MinimapButton_DraggingFrame_OnUpdate) end)
-	btn:SetScript("OnDragStop", function() this:SetScript("OnUpdate",nil); this:UnlockHighlight() end)
-	btn:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_LEFT"); GameTooltip:SetText("|cffFFD700PhantomGamble|r"); GameTooltip:AddLine("Click to toggle",1,1,1); GameTooltip:Show() end)
-	btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	PG_MinimapButton_Reposition(); return btn
+-------------------------------------------------------------------------------
+
+local function GB_UpdateMinimapPos()
+    local btn = GardenBuddyMinimapBtn
+    if not btn then return end
+    local angle = math.rad(GardenBuddyDB.minimapAngle or 195)
+    btn:SetPoint("CENTER", Minimap, "CENTER",
+                 math.cos(angle) * GB_MINIMAP_RADIUS,
+                 math.sin(angle) * GB_MINIMAP_RADIUS)
 end
 
-function PG_MinimapButton_Reposition()
-	if not PG_MinimapButton then return end
-	if not PG_Settings then PG_Settings = { MinimapPos = 75 } end
-	local angle = math.rad(PG_Settings.MinimapPos)
-	PG_MinimapButton:ClearAllPoints()
-	PG_MinimapButton:SetPoint("TOPLEFT", Minimap, "TOPLEFT", 52-(80*math.cos(angle)), (80*math.sin(angle))-52)
+local function GB_CreateMinimapButton()
+    local btn = CreateFrame("Button", "GardenBuddyMinimapBtn", Minimap)
+    btn:SetWidth(31)
+    btn:SetHeight(31)
+    btn:SetFrameStrata("MEDIUM")
+    btn:SetFrameLevel(8)
+    btn:SetMovable(true)
+    btn:SetClampedToScreen(true)
+
+    -- Standard circular minimap border
+    local border = btn:CreateTexture(nil, "OVERLAY")
+    border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+    border:SetWidth(54)
+    border:SetHeight(54)
+    border:SetPoint("TOPLEFT", btn, "TOPLEFT", -11.5, 11.5)
+
+    -- Herbalism / plant icon as the button face
+    local icon = btn:CreateTexture(nil, "BACKGROUND")
+    icon:SetTexture("Interface\\Icons\\Trade_Herbalism")
+    icon:SetWidth(21)
+    icon:SetHeight(21)
+    icon:SetPoint("CENTER", btn, "CENTER", 0, 0)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)   -- slight crop to fit circle
+
+    -- Pushed highlight overlay
+    local pushed = btn:CreateTexture(nil, "ARTWORK")
+    pushed:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+    pushed:SetAllPoints(icon)
+    pushed:SetBlendMode("ADD")
+    pushed:Hide()
+
+    -- Drag tracking state
+    btn.dragging = false
+
+    btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+
+    btn:SetScript("OnMouseDown", function()
+        if arg1 == "LeftButton" then
+            btn.dragging = false   -- will be set true in OnUpdate if mouse moves
+            pushed:Show()
+        end
+    end)
+
+    btn:SetScript("OnMouseUp", function()
+        pushed:Hide()
+        btn.dragging = false
+    end)
+
+    btn:SetScript("OnClick", function()
+        if btn.dragging then return end   -- ignore click at end of a drag
+        if arg1 == "RightButton" then
+            GB_ShowAddDialog()
+        else
+            -- Left-click: toggle main window
+            if GardenBuddyMainFrame:IsShown() then
+                GardenBuddyMainFrame:Hide()
+            else
+                GardenBuddyMainFrame:Show()
+                GB_RefreshDisplay()
+            end
+        end
+    end)
+
+    btn:SetScript("OnUpdate", function()
+        if IsMouseButtonDown("LeftButton") and
+           (GetMouseFocus() == this or btn.dragging) then
+            local mx, my = Minimap:GetCenter()
+            local cx, cy = GetCursorPosition()
+            local s      = UIParent:GetScale()
+            cx = cx / s ; cy = cy / s
+            local dx = cx - mx
+            local dy = cy - my
+            -- Only start dragging if mouse has moved a little (avoids accidental drags)
+            if not btn.dragging and (dx * dx + dy * dy) > 25 then
+                btn.dragging = true
+            end
+            if btn.dragging then
+                GardenBuddyDB.minimapAngle = math.deg(math.atan2(dy, dx))
+                GB_UpdateMinimapPos()
+            end
+        end
+    end)
+
+    btn:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_LEFT")
+        GameTooltip:AddLine("|cff55ff55Garden Buddy|r", 1, 1, 1)
+        GameTooltip:AddLine("Left-click:  Toggle window", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("Right-click: Add planter",  0.8, 0.8, 0.8)
+        GameTooltip:AddLine("Drag:        Reposition icon", 0.8, 0.8, 0.8)
+        local n = table.getn(GardenBuddyDB.planters)
+        if n > 0 then
+            GameTooltip:AddLine(n .. " planter(s) tracked", 0.4, 1.0, 0.4)
+        end
+        GameTooltip:Show()
+    end)
+    btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    GB_UpdateMinimapPos()
+    return btn
 end
 
-function PG_MinimapButton_DraggingFrame_OnUpdate()
-	if not PG_Settings then PG_Settings = { MinimapPos = 75 } end
-	local x,y = GetCursorPosition(); local s = UIParent:GetEffectiveScale(); x,y = x/s, y/s
-	local cx,cy = Minimap:GetCenter()
-	PG_Settings.MinimapPos = math.deg(math.atan2(y-cy, x-cx))
-	PG_MinimapButton_Reposition()
+-------------------------------------------------------------------------------
+-- BOTTOM BUTTON LABELS
+-------------------------------------------------------------------------------
+
+function GB_UpdateBottomButtons()
+    local f = GardenBuddyMainFrame
+    if not f then return end
+    local db = GardenBuddyDB
+
+    local snd = GB_SOUNDS[db.soundIndex]
+    if db.soundEnabled and snd and snd.id then
+        f.soundBtn:SetText("|cff55ff55Alert: " .. snd.label .. "|r")
+    else
+        f.soundBtn:SetText("|cffff5555Alert: Off|r")
+    end
+
+    local mins = math.floor(db.phaseDuration / 60)
+    f.durBtn:SetText("|cffaaffaaPhase Timer: " .. mins .. " min|r")
 end
 
-function PG_MinimapButton_OnClick()
-	if PhantomGamble and PhantomGamble["active"]==1 then PhantomGamble_Frame:Hide(); PhantomGamble["active"]=0
-	else PhantomGamble_Frame:Show(); if PhantomGamble then PhantomGamble["active"]=1 end end
+-------------------------------------------------------------------------------
+-- SOUND CYCLING
+-------------------------------------------------------------------------------
+
+function GB_CycleSound()
+    local db = GardenBuddyDB
+    db.soundIndex = math.mod(db.soundIndex, table.getn(GB_SOUNDS)) + 1
+    local s = GB_SOUNDS[db.soundIndex]
+    if s and s.id then
+        db.soundEnabled = true
+        PlaySound(s.id)
+    else
+        db.soundEnabled = false
+    end
+    GB_UpdateBottomButtons()
 end
 
--- ============================================
--- REGULAR GAMBLING FUNCTIONS
--- ============================================
+-------------------------------------------------------------------------------
+-- DURATION CYCLING
+-------------------------------------------------------------------------------
 
--- [MODIFIED] Reads both gold and silver fields. Silver is optional (leave blank or 0).
--- Validates silver is 0-99. Stores amounts internally in silver (1g = 100s).
-function PhantomGamble_OnClickACCEPTONES()
-	if PhantomGamble_AcceptOnes_Button:GetText() == "New Game" then
-		PhantomGamble_Reset()
-		PhantomGamble_AcceptOnes_Button:SetText("Open Entry")
-		PhantomGamble_AcceptOnes_Button:Enable()
-		PhantomGamble_ROLL_Button:Disable()
-		PhantomGamble_LASTCALL_Button:Disable()
-		PhantomGamble_Cancel_Button:Disable()
-		return
-	end
-
-	local goldText = PhantomGamble_EditBox:GetText()
-	local silverText = PhantomGamble_SilverEditBox and PhantomGamble_SilverEditBox:GetText() or ""
-	local goldVal = tonumber(goldText) or 0
-	local silverVal = tonumber(silverText) or 0
-
-	-- Validate: must have a positive total, and silver must be 0-99
-	if goldVal <= 0 and silverVal <= 0 then
-		DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Please enter a valid gold amount (silver is optional).|r")
-		return
-	end
-	if goldVal < 0 or silverVal < 0 or silverVal > 99 then
-		DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Invalid values. Gold must be positive, silver must be 0-99.|r")
-		return
-	end
-
-	PhantomGamble_Reset()
-	PhantomGamble_ROLL_Button:Disable()
-	PhantomGamble_LASTCALL_Button:Disable()
-	PhantomGamble_Cancel_Button:Enable()
-	if PhantomGamble_WHONEEDS_Button then PhantomGamble_WHONEEDS_Button:Disable() end
-	AcceptOnes = "true"
-
-	-- Store the silver component of the bet; the gold sets the roll max
-	betSilver = silverVal
-	theMax = goldVal
-	low = theMax + 1
-
-	-- Save last-used values for next session
-	PhantomGamble["lastroll"] = goldText
-	PhantomGamble["lastsilver"] = silverText
-
-	local moneyStr = FormatMoney(goldVal * 100 + silverVal)
-	ChatMsg("Welcome to PhantomGamble! Roll Amount: " .. moneyStr .. ". Type 1 to Join or -1 to withdraw.")
-	PhantomGamble_AcceptOnes_Button:SetText("New Game")
+function GB_CycleDuration()
+    local db  = GardenBuddyDB
+    local cur = db.phaseDuration
+    local nxt = GB_PHASE_DURATIONS[1]
+    for i, dur in ipairs(GB_PHASE_DURATIONS) do
+        if dur == cur then
+            nxt = GB_PHASE_DURATIONS[math.mod(i, table.getn(GB_PHASE_DURATIONS)) + 1]
+            break
+        end
+    end
+    db.phaseDuration = nxt
+    GB_UpdateBottomButtons()
+    DEFAULT_CHAT_FRAME:AddMessage(
+        "|cff55ff55[GardenBuddy]|r Phase duration: |cffddffdd" ..
+        math.floor(nxt / 60) .. " min|r per phase.")
 end
 
-function PhantomGamble_OnClickLASTCALL()
-	ChatMsg("Last Call to join!")
-	PhantomGamble_LASTCALL_Button:Disable()
-	PhantomGamble_ROLL_Button:Enable()
+-------------------------------------------------------------------------------
+-- MINIMIZE / RESTORE
+-------------------------------------------------------------------------------
+
+function GB_ToggleMinimize()
+    local db = GardenBuddyDB
+    local f  = GardenBuddyMainFrame
+    if not f then return end
+
+    db.minimized = not db.minimized
+
+    if db.minimized then
+        f.hdrFrame:Hide()
+        f.content:Hide()
+        f.noPlText:Hide()
+        f.upArrow:Hide()
+        f.downArrow:Hide()
+        GardenBuddyAddBtn:Hide()
+        GardenBuddySoundBtn:Hide()
+        GardenBuddyDurBtn:Hide()
+        f:SetHeight(GB_PAD + 24 + GB_PAD)
+    else
+        f.hdrFrame:Show()
+        f.content:Show()
+        f.upArrow:Show()
+        f.downArrow:Show()
+        GardenBuddyAddBtn:Show()
+        GardenBuddySoundBtn:Show()
+        GardenBuddyDurBtn:Show()
+        f:SetHeight(GB_CalcFrameHeight())
+        GB_RefreshDisplay()
+    end
 end
 
-function PhantomGamble_OnClickROLL()
-	if totalrolls > 1 then
-		AcceptOnes = "false"
-		AcceptRolls = "true"
-		ChatMsg("Roll now! Type /random 1-" .. theMax)
-		PhantomGamble_List()
-		if PhantomGamble_WHONEEDS_Button then PhantomGamble_WHONEEDS_Button:Enable() end
-		PhantomGamble_ROLL_Button:Disable()
-	elseif AcceptOnes == "true" then
-		ChatMsg("Not enough Players!")
-	end
+-------------------------------------------------------------------------------
+-- DISPLAY REFRESH
+-------------------------------------------------------------------------------
+
+function GB_RefreshDisplay()
+    local f = GardenBuddyMainFrame
+    if not f then return end
+
+    local planters = GardenBuddyDB.planters
+    local total    = table.getn(planters)
+
+    if total == 0 then f.noPlText:Show() else f.noPlText:Hide() end
+
+    if total > GB_MAX_VISIBLE_ROWS then
+        f.upArrow:Show() ; f.downArrow:Show()
+    else
+        f.upArrow:Hide() ; f.downArrow:Hide()
+        GB.scrollOfs = 0
+    end
+
+    for i = 1, GB_MAX_VISIBLE_ROWS do
+        local row  = GB.rows[i]
+        local pIdx = i + GB.scrollOfs
+        local p    = planters[pIdx]
+
+        if p then
+            row:Show()
+            row.planterIdx = pIdx
+
+            local phase, timeRem, phasesLeft = GB_GetStatus(p)
+            local isReady = (phasesLeft == 0 and timeRem <= 0)
+            local isWarn  = (not isReady and timeRem < 300)   -- < 5 min
+
+            row.nameFs:SetText("|cffddffdd" .. p.name .. "|r")
+
+            local pName = GB_PHASE_NAMES[phase] or ("Phase " .. phase)
+            if isReady then
+                row.phaseFs:SetText("|cff00ff44" .. pName .. "|r")
+            elseif isWarn then
+                row.phaseFs:SetText("|cffffbb00" .. pName .. "|r")
+            else
+                row.phaseFs:SetText("|cffaaddaa" .. pName .. "|r")
+            end
+
+            if isReady then
+                row.timeFs:SetText("|cff00ff44HARVEST!|r")
+            else
+                local ts = GB_FormatTime(timeRem)
+                if isWarn then
+                    row.timeFs:SetText("|cffffbb00" .. ts .. "|r")
+                else
+                    row.timeFs:SetText("|cffffffff" .. ts .. "|r")
+                end
+            end
+
+            if isReady then
+                row.leftFs:SetText("|cff00ff44Done!|r")
+            else
+                local ls = phasesLeft .. " / " .. (GB_TOTAL_PHASES - 1)
+                if phasesLeft <= 1 then
+                    row.leftFs:SetText("|cffffbb00" .. ls .. "|r")
+                else
+                    row.leftFs:SetText("|cffaaffaa" .. ls .. "|r")
+                end
+            end
+        else
+            row:Hide()
+            row.planterIdx = nil
+        end
+    end
+
+    GB_UpdateBottomButtons()
 end
 
-function PhantomGamble_OnClickCANCEL()
-	if AcceptOnes=="true" or AcceptRolls=="true" then ChatMsg("Gambling session has been cancelled.") end
-	PhantomGamble_Reset()
-	PhantomGamble_AcceptOnes_Button:SetText("Open Entry"); PhantomGamble_AcceptOnes_Button:Enable()
-	PhantomGamble_ROLL_Button:Disable(); PhantomGamble_LASTCALL_Button:Disable()
-	PhantomGamble_Cancel_Button:Disable(); PhantomGamble_CHAT_Button:Enable()
-	if PhantomGamble_WHONEEDS_Button then PhantomGamble_WHONEEDS_Button:Disable() end
-	Print("","","Gambling cancelled.")
+-------------------------------------------------------------------------------
+-- ADD PLANTER DIALOG
+-------------------------------------------------------------------------------
+
+local function GB_CreateAddDialog()
+    local d = CreateFrame("Frame", "GardenBuddyAddDialog", UIParent)
+    d:SetWidth(255)
+    d:SetHeight(112)
+    d:SetPoint("CENTER", UIParent, "CENTER")
+    d:SetBackdrop({
+        bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile     = true, tileSize = 32, edgeSize = 32,
+        insets   = { left = 11, right = 12, top = 12, bottom = 11 },
+    })
+    d:SetBackdropColor(0.04, 0.12, 0.04, 0.98)
+    d:SetFrameStrata("DIALOG")
+    d:EnableMouse(true)
+    d:SetMovable(true)
+    d:RegisterForDrag("LeftButton")
+    d:SetScript("OnDragStart", function() this:StartMoving() end)
+    d:SetScript("OnDragStop",  function() this:StopMovingOrSizing() end)
+
+    local titleFs = d:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    titleFs:SetPoint("TOP", d, "TOP", 0, -16)
+    titleFs:SetText("|cff55ff55Add Garden Planter|r")
+
+    local labelFs = d:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    labelFs:SetPoint("TOPLEFT", d, "TOPLEFT", 18, -38)
+    labelFs:SetText("|cffddffddPlanter Name:|r")
+
+    local editBox = CreateFrame("EditBox", "GardenBuddyDialogEdit", d, "InputBoxTemplate")
+    editBox:SetWidth(205)
+    editBox:SetHeight(20)
+    editBox:SetPoint("TOPLEFT", d, "TOPLEFT", 18, -54)
+    editBox:SetMaxLetters(40)
+    editBox:SetAutoFocus(true)
+    editBox:SetScript("OnEnterPressed", function()
+        GB_AddPlanter(this:GetText())
+        GardenBuddyAddDialog:Hide()
+    end)
+    editBox:SetScript("OnEscapePressed", function()
+        GardenBuddyAddDialog:Hide()
+    end)
+
+    local okBtn = CreateFrame("Button", nil, d, "GameMenuButtonTemplate")
+    okBtn:SetWidth(80) ; okBtn:SetHeight(22)
+    okBtn:SetPoint("BOTTOMLEFT", d, "BOTTOMLEFT", 18, 12)
+    okBtn:SetText("|cff55ff55Plant!|r")
+    okBtn:SetScript("OnClick", function()
+        GB_AddPlanter(GardenBuddyDialogEdit:GetText())
+        GardenBuddyAddDialog:Hide()
+    end)
+
+    local cancelBtn = CreateFrame("Button", nil, d, "GameMenuButtonTemplate")
+    cancelBtn:SetWidth(80) ; cancelBtn:SetHeight(22)
+    cancelBtn:SetPoint("BOTTOMRIGHT", d, "BOTTOMRIGHT", -18, 12)
+    cancelBtn:SetText("Cancel")
+    cancelBtn:SetScript("OnClick", function() GardenBuddyAddDialog:Hide() end)
+
+    d:Hide()
 end
 
-function PhantomGamble_OnClickCHAT()
-	PhantomGamble["chat"]=(PhantomGamble["chat"] or 1)+1
-	if PhantomGamble["chat"]>4 then PhantomGamble["chat"]=1 end
-	chatmethod=chatmethods[PhantomGamble["chat"]]; PhantomGamble_CHAT_Button:SetText(chatmethod)
+function GB_ShowAddDialog()
+    if not GardenBuddyAddDialog then GB_CreateAddDialog() end
+    local suggestName = "Planter " .. (table.getn(GardenBuddyDB.planters) + 1)
+    GardenBuddyDialogEdit:SetText(suggestName)
+    GardenBuddyDialogEdit:HighlightText()
+    GardenBuddyDialogEdit:SetFocus()
+    GardenBuddyAddDialog:Show()
 end
 
-function PhantomGamble_OnClickWHISPERS()
-	PhantomGamble["whispers"]=not PhantomGamble["whispers"]; whispermethod=PhantomGamble["whispers"]
-	PhantomGamble_WHISPER_Button:SetText(whispermethod and "(Whispers)" or "(No Whispers)")
+-------------------------------------------------------------------------------
+-- AUTO-DETECT PLANTING FROM CHAT
+-------------------------------------------------------------------------------
+
+local function GB_CheckChatForPlanting(msg)
+    if not msg then return false end
+    local lower = strlower(msg)
+    for _, kw in ipairs(GB_PLANT_KEYWORDS) do
+        if strfind(lower, kw, 1, true) then return true end
+    end
+    return false
 end
 
--- [MODIFIED] Uses FormatMoney for silver-aware display
--- [ADDED] Announces which players still need to roll (only active during roll phase)
-function PhantomGamble_OnClickWHONEEDS()
-	if AcceptRolls ~= "true" then return end
-	if not PhantomGamble.strings or table.getn(PhantomGamble.strings) == 0 then
-		ChatMsg("Everyone has rolled!")
-	else
-		local list = ""
-		for i, v in ipairs(PhantomGamble.strings) do
-			list = list .. (list ~= "" and ", " or "") .. v
-		end
-		ChatMsg("Still needs to roll: " .. list)
-	end
-end
+-------------------------------------------------------------------------------
+-- EVENT HANDLER
+-------------------------------------------------------------------------------
 
-function PhantomGamble_OnClickSTATS(full)
-	if not PhantomGamble["stats"] or not next(PhantomGamble["stats"]) then DEFAULT_CHAT_FRAME:AddMessage("No stats yet!"); return end
-	DEFAULT_CHAT_FRAME:AddMessage("--- PhantomGamble Stats ---")
-	for name,amount in pairs(PhantomGamble["stats"]) do
-		DEFAULT_CHAT_FRAME:AddMessage(string.format("%s %s %s", name, amount>=0 and "won" or "lost", FormatMoney(math.abs(amount))))
-	end
-end
+local evFrame = CreateFrame("Frame", "GardenBuddyEventFrame")
+evFrame:RegisterEvent("ADDON_LOADED")
+evFrame:RegisterEvent("PLAYER_LOGOUT")
+evFrame:RegisterEvent("CHAT_MSG_SYSTEM")
+evFrame:RegisterEvent("CHAT_MSG_SPELL_SELF_BUFF")
 
--- [MODIFIED] Handles multiple tied winners with split payouts.
--- Also accounts for silver bets in debt calculation.
--- All monetary amounts tracked in silver (1g = 100s).
-function PhantomGamble_Report()
-	-- Total debt in silver = roll-range difference in gold + flat silver component
-	local rollDiffGold = high - low
-	local totalSilverOwed = (rollDiffGold * 100) + betSilver
+evFrame:SetScript("OnEvent", function()
 
-	-- Capitalize names
-	local function Cap(s)
-		if not s or s == "" then return s end
-		return string.upper(string.sub(s,1,1)) .. string.sub(s,2)
-	end
+    if event == "ADDON_LOADED" and arg1 == "GardenBuddy" then
+        -- Init / merge saved vars
+        if not GardenBuddyDB then
+            GardenBuddyDB = GB_GetDefaults()
+        else
+            local def = GB_GetDefaults()
+            for k, v in pairs(def) do
+                if GardenBuddyDB[k] == nil then GardenBuddyDB[k] = v end
+            end
+        end
 
-	lowname = Cap(lowname)
+        -- Build main window — always start HIDDEN (minimap icon or /gb show opens it)
+        GardenBuddyMainFrame = GB_CreateMainFrame()
+        GardenBuddyMainFrame:Hide()
 
-	if high == low then
-		-- Everyone tied at the same roll — no payout
-		ChatMsg("It was a complete tie! No payouts!")
+        -- Build minimap button
+        GB_CreateMinimapButton()
 
-	elseif table.getn(highnames) > 1 then
-		-- [ADDED] Multiple players tied for the highest roll — split the pot
-		local numWinners = table.getn(highnames)
-		local splitSilver = math.floor(totalSilverOwed / numWinners)
+        -- Restore minimized state if needed
+        if GardenBuddyDB.minimized then
+            GardenBuddyDB.minimized = false
+            GB_ToggleMinimize()
+        end
 
-		-- Build winner list string
-		local winnerList = ""
-		for i, wn in ipairs(highnames) do
-			highnames[i] = Cap(wn)
-			winnerList = winnerList .. (i > 1 and ", " or "") .. highnames[i]
-		end
+        GB_RefreshDisplay()
+        DEFAULT_CHAT_FRAME:AddMessage(
+            "|cff55ff55[GardenBuddy]|r v" .. GARDENBUDDY_VERSION ..
+            " loaded — click the |cff33dd33minimap icon|r to open, or use |cffddffdd/gb|r.")
 
-		ChatMsg(string.format(
-			"TIE at the top! %d winners rolled %d: %s",
-			numWinners, high, winnerList
-		))
-		ChatMsg(string.format(
-			"Pot of %s is split %d ways = %s each.",
-			FormatMoney(totalSilverOwed), numWinners, FormatMoney(splitSilver)
-		))
+        GB.initialized = true
 
-		-- Record debt and stats for each winner
-		for _, wn in ipairs(highnames) do
-			PhantomGamble["stats"][wn] = (PhantomGamble["stats"][wn] or 0) + splitSilver
-			PhantomGamble["stats"][lowname] = (PhantomGamble["stats"][lowname] or 0) - splitSilver
-			statsNeedUpdate = true
-			AddDebt(lowname, wn, splitSilver)
-			ChatMsg(string.format("%s owes %s %s.", lowname, wn, FormatMoney(splitSilver)))
-		end
+    elseif event == "PLAYER_LOGOUT" then
+        if GardenBuddyMainFrame then
+            local _, _, _, x, y = GardenBuddyMainFrame:GetPoint()
+            GardenBuddyDB.posX = x
+            GardenBuddyDB.posY = y
+        end
 
-		if PhantomGamble_StatsFrame and PhantomGamble_StatsFrame:IsVisible() then RefreshStatsDisplay() end
-		if PhantomGamble_DebtsFrame and PhantomGamble_DebtsFrame:IsVisible() then RefreshDebtsDisplay() end
-
-	else
-		-- Normal single-winner case
-		highname = Cap(highname)
-
-		if totalSilverOwed > 0 then
-			PhantomGamble["stats"][highname] = (PhantomGamble["stats"][highname] or 0) + totalSilverOwed
-			PhantomGamble["stats"][lowname]  = (PhantomGamble["stats"][lowname]  or 0) - totalSilverOwed
-			statsNeedUpdate = true
-			AddDebt(lowname, highname, totalSilverOwed)
-
-			if PhantomGamble_StatsFrame and PhantomGamble_StatsFrame:IsVisible() then RefreshStatsDisplay() end
-			if PhantomGamble_DebtsFrame and PhantomGamble_DebtsFrame:IsVisible() then RefreshDebtsDisplay() end
-
-			ChatMsg(string.format("%s owes %s %s.", lowname, highname, FormatMoney(totalSilverOwed)))
-		else
-			ChatMsg("It was a tie! No payouts!")
-		end
-	end
-
-	PhantomGamble_Reset()
-	PhantomGamble_AcceptOnes_Button:SetText("Open Entry"); PhantomGamble_AcceptOnes_Button:Enable()
-	PhantomGamble_ROLL_Button:Disable(); PhantomGamble_LASTCALL_Button:Disable()
-	PhantomGamble_Cancel_Button:Disable(); PhantomGamble_CHAT_Button:Enable()
-	if PhantomGamble_WHONEEDS_Button then PhantomGamble_WHONEEDS_Button:Disable() end
-end
-
--- [MODIFIED] Also resets betSilver and the highnames tie-tracker
-function PhantomGamble_Reset()
-	totalrolls, low, high, lowname, highname = 0, 0, 0, "", ""
-	highnames = {}
-	betSilver = 0
-	tie, highbreak, lowbreak = 0, 0, 0
-	AcceptOnes, AcceptRolls = "false", "false"
-	if PhantomGamble then
-		PhantomGamble.strings = {}
-		PhantomGamble.lowtie  = {}
-		PhantomGamble.hightie = {}
-	end
-end
-
-function PhantomGamble_Add(name)
-	if not PhantomGamble.strings then PhantomGamble.strings={} end
-	for i,v in ipairs(PhantomGamble.strings) do if string.lower(v)==string.lower(name) then return end end
-	table.insert(PhantomGamble.strings, name); totalrolls=table.getn(PhantomGamble.strings)
-	if whispermethod then SendChatMessage("You joined!","WHISPER",nil,name) end
-	Print("","",name.." joined. Players: "..totalrolls)
-	if totalrolls>=1 then PhantomGamble_LASTCALL_Button:Enable() end
-end
-
-function PhantomGamble_Remove(name)
-	if not PhantomGamble.strings then return end
-	for i,v in ipairs(PhantomGamble.strings) do
-		if string.lower(v)==string.lower(name) then table.remove(PhantomGamble.strings,i); totalrolls=table.getn(PhantomGamble.strings); Print("","",name.." left. Players: "..totalrolls); return end
-	end
-end
-
-function PhantomGamble_ChkBan(name)
-	if not PhantomGamble or not PhantomGamble.bans then return 0 end
-	for i,v in ipairs(PhantomGamble.bans) do if string.lower(v)==string.lower(name) then return 1 end end; return 0
-end
-
-function PhantomGamble_List()
-	if not PhantomGamble.strings or table.getn(PhantomGamble.strings)==0 then ChatMsg("No players."); return end
-	local list=""
-	for i,v in ipairs(PhantomGamble.strings) do list=list..(list~="" and ", " or "")..v end
-	ChatMsg("Players: "..list)
-end
-
--- [MODIFIED] Now tracks the full highnames table for tie detection.
--- When a new high is rolled, highnames is reset to just that player.
--- When a player ties the current high, they are added to highnames.
-function PhantomGamble_ParseRoll(msg)
-	local _,_,name,roll,minroll,maxroll = string.find(msg, "(.+) rolls (%d+) %((%d+)%-(%d+)%)")
-	if not name then return end
-	roll=tonumber(roll); minroll=tonumber(minroll); maxroll=tonumber(maxroll)
-
-	-- Check the player is in our list first (don't remove yet)
-	local found, idx = false, nil
-	if PhantomGamble.strings then
-		for i,v in ipairs(PhantomGamble.strings) do
-			if string.lower(v)==string.lower(name) then found=true; idx=i; break end
-		end
-	end
-	if not found then return end
-
-	-- Validate roll range; if wrong, notify and leave them in the list to reroll
-	if maxroll~=theMax or minroll~=1 then
-		ChatMsg(name.." rolled wrong range! Please roll /random 1-"..theMax)
-		return
-	end
-
-	-- Valid roll: remove from waiting list and record result
-	table.remove(PhantomGamble.strings, idx)
-
-	-- [MODIFIED] Track all tied top-rollers in highnames
-	if roll > high then
-		high = roll
-		highname = name
-		highnames = { name }          -- new leader, reset tie list
-	elseif roll == high then
-		table.insert(highnames, name) -- tied with current leader
-	end
-
-	if roll < low then
-		low = roll
-		lowname = name
-	end
-
-	totalrolls = totalrolls - 1
-	local tieNote = table.getn(highnames) > 1 and " [TIE at top!]" or ""
-	Print("","", name.." rolled "..roll.."."..tieNote.." Waiting: "..totalrolls)
-	if totalrolls == 0 then PhantomGamble_Report() end
-end
-
--- ============================================
--- CHAT MESSAGE PARSING
--- ============================================
-function PhantomGamble_ParseChatMsg(msg, sender)
-	-- [MODIFIED] !paid command: amount is in gold (user-facing), converted to silver internally
-	local _,_,paidTo,paidAmount = string.find(msg, "^!paid%s+(%S+)%s+(%d+)")
-	if paidTo and paidAmount then
-		paidAmount = tonumber(paidAmount)
-		if paidAmount and paidAmount > 0 then
-			local paidSilver = paidAmount * 100  -- convert gold to silver
-			local success, errMsg = PayDebt(sender, paidTo, paidSilver)
-			if success then
-				ChatMsg(sender.." paid "..paidTo.." "..paidAmount.." gold. Debt updated!")
-				Print("","","Payment recorded: "..sender.." -> "..paidTo.." ("..paidAmount.."g)")
-				if PhantomGamble_DebtsFrame and PhantomGamble_DebtsFrame:IsVisible() then RefreshDebtsDisplay() end
-			else
-				Print("","",errMsg or "Could not record payment")
-			end
-		end
-		return
-	end
-
-	-- Trivia answers
-	if TR_Active and TR_WaitingForAnswers then PhantomGamble_TR_ParseChat(msg, sender) end
-
-	-- Regular gambling
-	if msg=="1" and AcceptOnes=="true" then
-		if PhantomGamble_ChkBan(sender)==0 then
-			PhantomGamble_Add(sender)
-			if totalrolls>=2 then PhantomGamble_AcceptOnes_Button:Disable() end
-		else
-			ChatMsg("Sorry, you're banned!")
-		end
-	elseif msg=="-1" and AcceptOnes=="true" then
-		PhantomGamble_Remove(sender)
-	end
-end
-
--- ============================================
--- SLASH COMMANDS
--- ============================================
-function PhantomGamble_SlashCmd(msg)
-	msg = string.lower(msg or "")
-	if msg=="" then Print("","","Commands: show, hide, stats, debts, reset, fullstats, resetstats, resetdebts, minimap, ban, unban, listban"); return end
-	if msg=="hide" then PhantomGamble_Frame:Hide(); PhantomGamble["active"]=0
-	elseif msg=="show" then PhantomGamble_Frame:Show(); PhantomGamble["active"]=1
-	elseif msg=="stats" then if not PhantomGamble_StatsFrame then CreateStatsWindow() end; PhantomGamble_StatsFrame:Show()
-	elseif msg=="debts" then if not PhantomGamble_DebtsFrame then CreateDebtsWindow() end; PhantomGamble_DebtsFrame:Show()
-	elseif msg=="reset" then PhantomGamble_Reset(); Print("","","PhantomGamble has been reset.")
-	elseif msg=="fullstats" then PhantomGamble_OnClickSTATS(true)
-	elseif msg=="resetstats" then PhantomGamble["stats"]={}; statsNeedUpdate=true; Print("","","Stats have been reset.")
-	elseif msg=="resetdebts" then PhantomGamble["debts"]={}; debtsNeedUpdate=true; Print("","","Debts have been reset.")
-	elseif msg=="minimap" then PhantomGamble["minimap"]=not PhantomGamble["minimap"]; if PhantomGamble["minimap"] then PG_MinimapButton:Show() else PG_MinimapButton:Hide() end
-	elseif string.sub(msg,1,4)=="ban " then
-		local name=string.sub(msg,5); if not PhantomGamble.bans then PhantomGamble.bans={} end; table.insert(PhantomGamble.bans,name); Print("","",name.." banned.")
-	elseif string.sub(msg,1,6)=="unban " then
-		local name=string.sub(msg,7)
-		if PhantomGamble.bans then for i,v in ipairs(PhantomGamble.bans) do if string.lower(v)==string.lower(name) then table.remove(PhantomGamble.bans,i); Print("","",name.." unbanned."); return end end end
-	elseif msg=="listban" then
-		if not PhantomGamble.bans or table.getn(PhantomGamble.bans)==0 then Print("","","No bans.")
-		else for i,v in ipairs(PhantomGamble.bans) do DEFAULT_CHAT_FRAME:AddMessage("  "..v) end end
-	else Print("","","Unknown command: "..msg) end
-end
-
-SLASH_PHANTOMGAMBLE1 = "/phantomgamble"
-SLASH_PHANTOMGAMBLE2 = "/pg"
-SlashCmdList["PHANTOMGAMBLE"] = PhantomGamble_SlashCmd
-
--- ============================================
--- EVENT HANDLING
--- ============================================
-function PhantomGamble_OnEvent()
-	if event == "PLAYER_ENTERING_WORLD" then
-		if not PhantomGamble_Frame then CreateMainFrame() end
-		if not PG_MinimapButton then CreateMinimapButton() end
-		if not PhantomGamble then
-			PhantomGamble = { active=1, chat=1, channel="gambling", whispers=false, strings={}, lowtie={}, hightie={}, bans={}, minimap=true, lastroll=100, lastsilver=0, stats={}, joinstats={}, debts={} }
-		end
-		if not PhantomGamble["debts"] then PhantomGamble["debts"] = {} end
-		-- [ADDED] Default lastsilver if missing from older saved data
-		if not PhantomGamble["lastsilver"] then PhantomGamble["lastsilver"] = 0 end
-
-		PhantomGamble_EditBox:SetText(tostring(PhantomGamble["lastroll"] or 100))
-		-- [ADDED] Restore silver field
-		if PhantomGamble_SilverEditBox then
-			local sv = PhantomGamble["lastsilver"]
-			PhantomGamble_SilverEditBox:SetText(sv ~= 0 and tostring(sv) or "")
-		end
-
-		-- Restore trivia settings
-		TR_TotalRounds = PhantomGamble["lastTRRounds"] or 5
-		TR_SelectedExpansion = PhantomGamble["lastTRExpansion"] or "All"
-		if PhantomGamble_TR_RoundsSelectText then PhantomGamble_TR_RoundsSelectText:SetText(tostring(TR_TotalRounds)) end
-		if PhantomGamble_TR_ExpSelectText then PhantomGamble_TR_ExpSelectText:SetText(TR_SelectedExpansion) end
-
-		chatmethod = chatmethods[PhantomGamble["chat"] or 1] or "RAID"
-		PhantomGamble_CHAT_Button:SetText(chatmethod)
-		if PhantomGamble["minimap"] then PG_MinimapButton:Show() else PG_MinimapButton:Hide() end
-		whispermethod = PhantomGamble["whispers"] or false
-		PhantomGamble_WHISPER_Button:SetText(whispermethod and "(Whispers)" or "(No Whispers)")
-		if PhantomGamble["active"]==1 then PhantomGamble_Frame:Show() else PhantomGamble_Frame:Hide() end
-		DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00PhantomGamble loaded!|r Type |cffFFD700/pg|r for commands.")
-	end
-
-	local chatEvent = false
-	if (event=="CHAT_MSG_RAID_LEADER" or event=="CHAT_MSG_RAID") and PhantomGamble["chat"]==1 then chatEvent=true
-	elseif event=="CHAT_MSG_GUILD" and PhantomGamble["chat"]==2 then chatEvent=true
-	elseif event=="CHAT_MSG_PARTY" and PhantomGamble["chat"]==3 then chatEvent=true
-	elseif event=="CHAT_MSG_SAY" and PhantomGamble["chat"]==4 then chatEvent=true end
-
-	if chatEvent then PhantomGamble_ParseChatMsg(arg1, arg2) end
-
-	if event == "CHAT_MSG_SYSTEM" then
-		if AcceptRolls == "true" then PhantomGamble_ParseRoll(tostring(arg1)) end
-	end
-end
-
--- ============================================
--- TRIVIA TIMER (OnUpdate handler)
--- ============================================
-local PG_TimerFrame = CreateFrame("Frame", "PhantomGamble_TimerFrame", UIParent)
-local PG_TimerElapsed = 0
-PG_TimerFrame:SetScript("OnUpdate", function()
-	if not TR_TimerActive then return end
-	PG_TimerElapsed = PG_TimerElapsed + arg1
-	if PG_TimerElapsed >= 1 then
-		PG_TimerElapsed = 0
-		TR_QuestionTimer = TR_QuestionTimer - 1
-		if TR_QuestionTimer <= 0 then
-			TR_EndRound()
-		elseif TR_QuestionTimer == 15 then
-			ChatMsg("15 seconds remaining!")
-		elseif TR_QuestionTimer == 5 then
-			ChatMsg("5 seconds remaining!")
-		end
-	end
+    elseif (event == "CHAT_MSG_SYSTEM" or event == "CHAT_MSG_SPELL_SELF_BUFF")
+           and GB.initialized then
+        if GB_CheckChatForPlanting(arg1) then
+            local name = "Planter " .. (table.getn(GardenBuddyDB.planters) + 1)
+            GB_AddPlanter(name)
+            DEFAULT_CHAT_FRAME:AddMessage(
+                "|cff55ff55[GardenBuddy]|r Auto-detected planting! " ..
+                "Rename with |cffddffdd/gb rename <#> <name>|r if needed.")
+        end
+    end
 end)
 
--- ============================================
--- EVENT FRAME REGISTRATION
--- ============================================
-local PhantomGamble_EventFrame = CreateFrame("Frame", "PhantomGamble_EventFrame", UIParent)
-PhantomGamble_EventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-PhantomGamble_EventFrame:RegisterEvent("CHAT_MSG_RAID")
-PhantomGamble_EventFrame:RegisterEvent("CHAT_MSG_RAID_LEADER")
-PhantomGamble_EventFrame:RegisterEvent("CHAT_MSG_GUILD")
-PhantomGamble_EventFrame:RegisterEvent("CHAT_MSG_PARTY")
-PhantomGamble_EventFrame:RegisterEvent("CHAT_MSG_SAY")
-PhantomGamble_EventFrame:RegisterEvent("CHAT_MSG_SYSTEM")
-PhantomGamble_EventFrame:SetScript("OnEvent", PhantomGamble_OnEvent)
+-------------------------------------------------------------------------------
+-- SLASH COMMANDS
+-------------------------------------------------------------------------------
+
+SLASH_GARDENBUDDY1 = "/gb"
+SLASH_GARDENBUDDY2 = "/gardenbuddy"
+SLASH_GARDENBUDDY3 = "/garden"
+
+SlashCmdList["GARDENBUDDY"] = function(msg)
+    if not msg then msg = "" end
+    msg = strtrim(msg)
+
+    local spacePos = strfind(msg, " ")
+    local cmd, rest
+    if spacePos then
+        cmd  = strlower(strsub(msg, 1, spacePos - 1))
+        rest = strtrim(strsub(msg, spacePos + 1))
+    else
+        cmd  = strlower(msg)
+        rest = ""
+    end
+
+    if cmd == "add" then
+        if strlen(rest) > 0 then GB_AddPlanter(rest) else GB_ShowAddDialog() end
+
+    elseif cmd == "remove" or cmd == "rem" or cmd == "del" then
+        local idx = tonumber(rest)
+        if idx then GB_RemovePlanter(idx)
+        else DEFAULT_CHAT_FRAME:AddMessage(
+                 "|cff55ff55[GardenBuddy]|r Usage: /gb remove <number>") end
+
+    elseif cmd == "rename" then
+        local sp2 = strfind(rest, " ")
+        if sp2 then
+            local idx  = tonumber(strsub(rest, 1, sp2 - 1))
+            local name = strtrim(strsub(rest, sp2 + 1))
+            if idx and GardenBuddyDB.planters[idx] then
+                GardenBuddyDB.planters[idx].name = name
+                GB_RefreshDisplay()
+                DEFAULT_CHAT_FRAME:AddMessage(
+                    "|cff55ff55[GardenBuddy]|r Renamed to: |cffddffdd" .. name .. "|r")
+            end
+        else
+            DEFAULT_CHAT_FRAME:AddMessage(
+                "|cff55ff55[GardenBuddy]|r Usage: /gb rename <#> <new name>")
+        end
+
+    elseif cmd == "clear" then
+        GardenBuddyDB.planters = {}
+        GB.scrollOfs = 0
+        GB_RefreshDisplay()
+        DEFAULT_CHAT_FRAME:AddMessage("|cff55ff55[GardenBuddy]|r All planters cleared.")
+
+    elseif cmd == "show" then
+        GardenBuddyMainFrame:Show()
+        GB_RefreshDisplay()
+
+    elseif cmd == "hide" then
+        GardenBuddyMainFrame:Hide()
+
+    elseif cmd == "toggle" then
+        if GardenBuddyMainFrame:IsShown() then
+            GardenBuddyMainFrame:Hide()
+        else
+            GardenBuddyMainFrame:Show()
+            GB_RefreshDisplay()
+        end
+
+    elseif cmd == "sound" then
+        GB_CycleSound()
+
+    elseif cmd == "list" then
+        local ps = GardenBuddyDB.planters
+        if table.getn(ps) == 0 then
+            DEFAULT_CHAT_FRAME:AddMessage("|cff55ff55[GardenBuddy]|r No active planters.")
+        else
+            DEFAULT_CHAT_FRAME:AddMessage("|cff55ff55[GardenBuddy]|r Active planters:")
+            for i, p in ipairs(ps) do
+                local ph, tr, pl = GB_GetStatus(p)
+                local pname = GB_PHASE_NAMES[ph] or ("Phase " .. ph)
+                DEFAULT_CHAT_FRAME:AddMessage(string.format(
+                    "  |cffddffdd#%d|r %s  |cffaaffaa%s|r  %s remaining  |cffaaffaa%d left|r",
+                    i, p.name, pname, GB_FormatTime(tr), pl))
+            end
+        end
+
+    elseif cmd == "duration" or cmd == "dur" then
+        local mins = tonumber(rest)
+        if mins and mins > 0 then
+            GardenBuddyDB.phaseDuration = mins * 60
+            GB_UpdateBottomButtons()
+            DEFAULT_CHAT_FRAME:AddMessage(
+                "|cff55ff55[GardenBuddy]|r Phase duration: |cffddffdd" .. mins .. " min|r.")
+        else
+            GB_CycleDuration()
+        end
+
+    elseif cmd == "reset" then
+        local kept = GardenBuddyDB.planters
+        GardenBuddyDB = GB_GetDefaults()
+        GardenBuddyDB.planters = kept
+        GB_UpdateBottomButtons()
+        DEFAULT_CHAT_FRAME:AddMessage(
+            "|cff55ff55[GardenBuddy]|r Settings reset (planters kept).")
+
+    elseif cmd == "resetall" then
+        GardenBuddyDB = GB_GetDefaults()
+        GB.scrollOfs = 0
+        GB_RefreshDisplay()
+        DEFAULT_CHAT_FRAME:AddMessage(
+            "|cff55ff55[GardenBuddy]|r Full reset — all data cleared.")
+
+    else
+        DEFAULT_CHAT_FRAME:AddMessage("|cff55ff55=== Garden Buddy v" .. GARDENBUDDY_VERSION .. " ===|r")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffddffdd/gb add [name]|r          - Track a new planter")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffddffdd/gb remove <#>|r          - Remove planter by number")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffddffdd/gb rename <#> <name>|r   - Rename a planter")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffddffdd/gb clear|r               - Remove all planters")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffddffdd/gb list|r                - Print planters to chat")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffddffdd/gb show|r / |cffddffdd/gb hide|r        - Show / hide window")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffddffdd/gb toggle|r              - Toggle window")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffddffdd/gb sound|r               - Cycle alert sound")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffddffdd/gb duration [min]|r      - Set phase length in minutes")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffddffdd/gb reset|r               - Reset settings (keep planters)")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cffddffdd/gb resetall|r            - Full wipe")
+        DEFAULT_CHAT_FRAME:AddMessage("  |cff668866Minimap: left-click = toggle | right-click = add | drag = move|r")
+    end
+end
