@@ -1047,6 +1047,7 @@ local function ShowMode(mode)
 		"PhantomGamble_AcceptOnes_Button",
 		"PhantomGamble_LASTCALL_Button",
 		"PhantomGamble_ROLL_Button",
+		"PhantomGamble_WHONEEDS_Button",
 		"PhantomGamble_Cancel_Button"
 	}
 	local trEls = {"PhantomGamble_TRTitle","PhantomGamble_TR_RoundsLabel","PhantomGamble_TR_RoundsSelect","PhantomGamble_TR_RoundsDropdown","PhantomGamble_TR_ExpLabel","PhantomGamble_TR_ExpSelect","PhantomGamble_TR_ExpDropdown","PhantomGamble_TR_StartBtn","PhantomGamble_TR_AskBtn","PhantomGamble_TR_CancelBtn","PhantomGamble_TR_Status"}
@@ -1069,9 +1070,9 @@ end
 -- ============================================
 local function CreateMainFrame()
 	local f = CreateFrame("Frame","PhantomGamble_Frame",UIParent)
-	f:SetWidth(310); f:SetHeight(270); f:SetPoint("CENTER",UIParent,"CENTER",0,0)
+	f:SetWidth(300); f:SetHeight(310); f:SetPoint("CENTER",UIParent,"CENTER",0,0)
 	f:SetMovable(true); f:SetResizable(true); f:EnableMouse(true); f:SetFrameStrata("DIALOG")
-	f:SetMinResize(290,250); f:SetMaxResize(480,420)
+	f:SetMinResize(280,290); f:SetMaxResize(480,460)
 	local bg = f:CreateTexture(nil,"BACKGROUND"); bg:SetTexture(0,0,0,0.85); bg:SetAllPoints(f)
 	for _,side in ipairs({"TOP","BOTTOM","LEFT","RIGHT"}) do
 		local b = f:CreateTexture(nil,"BORDER"); b:SetTexture(0.6,0.6,0.6,1)
@@ -1152,71 +1153,94 @@ local function CreateMainFrame()
 	-- ==========================================
 	-- PANEL 1: Regular Gambling
 	-- ==========================================
+	-- Title: centered at top of content area
 	local rt = f:CreateFontString("PhantomGamble_RegularTitle","OVERLAY","GameFontNormalSmall")
 	rt:SetPoint("TOP",f,"TOP",0,cTop)
 	rt:SetText("|cff00ff00Regular Gamble|r")
 
-	-- [ADDED] Gold label (left side of input row)
+	-- Input row: Gold label + editbox + Silver label + editbox, centered as a unit.
+	-- Row total width ≈ 34+4+70+8+38+4+46 = 204px; anchor start at CENTER-102.
+
 	local goldLabel = f:CreateFontString("PhantomGamble_GoldLabel","OVERLAY","GameFontNormalSmall")
-	goldLabel:SetPoint("TOPLEFT", f, "TOPLEFT", 28, cTop - 24)
+	goldLabel:SetPoint("TOP", rt, "BOTTOM", 0, -10)
+	goldLabel:SetPoint("CENTER", f, "CENTER", -102, -52)
 	goldLabel:SetText("|cffFFD700Gold:|r")
 	goldLabel:SetJustifyH("LEFT")
 
-	-- [MODIFIED] Gold EditBox — anchored next to the gold label
+	-- Gold EditBox (width 70, centered to the right of the gold label)
 	local eb = CreateFrame("EditBox","PhantomGamble_EditBox",f)
-	eb:SetWidth(68); eb:SetHeight(22)
+	eb:SetWidth(70); eb:SetHeight(22)
 	eb:SetPoint("LEFT", goldLabel, "RIGHT", 4, 0)
 	eb:SetFontObject(ChatFontNormal); eb:SetAutoFocus(false); eb:SetNumeric(true); eb:SetMaxLetters(6); eb:SetJustifyH("CENTER")
 	eb:SetScript("OnEscapePressed", function() this:ClearFocus() end)
 	eb:SetScript("OnEnterPressed", function() this:ClearFocus() end)
 	local ebbg = eb:CreateTexture(nil,"BACKGROUND"); ebbg:SetTexture(0.1,0.1,0.1,0.8); ebbg:SetAllPoints(eb)
-	local ebBorderT = eb:CreateTexture(nil,"BORDER"); ebBorderT:SetTexture(0.4,0.4,0.4,1); ebBorderT:SetHeight(1); ebBorderT:SetPoint("TOPLEFT",eb,"TOPLEFT"); ebBorderT:SetPoint("TOPRIGHT",eb,"TOPRIGHT")
-	local ebBorderB = eb:CreateTexture(nil,"BORDER"); ebBorderB:SetTexture(0.4,0.4,0.4,1); ebBorderB:SetHeight(1); ebBorderB:SetPoint("BOTTOMLEFT",eb,"BOTTOMLEFT"); ebBorderB:SetPoint("BOTTOMRIGHT",eb,"BOTTOMRIGHT")
-	local ebBorderL = eb:CreateTexture(nil,"BORDER"); ebBorderL:SetTexture(0.4,0.4,0.4,1); ebBorderL:SetWidth(1); ebBorderL:SetPoint("TOPLEFT",eb,"TOPLEFT"); ebBorderL:SetPoint("BOTTOMLEFT",eb,"BOTTOMLEFT")
-	local ebBorderR = eb:CreateTexture(nil,"BORDER"); ebBorderR:SetTexture(0.4,0.4,0.4,1); ebBorderR:SetWidth(1); ebBorderR:SetPoint("TOPRIGHT",eb,"TOPRIGHT"); ebBorderR:SetPoint("BOTTOMRIGHT",eb,"BOTTOMRIGHT")
+	local ebBT = eb:CreateTexture(nil,"BORDER"); ebBT:SetTexture(0.4,0.4,0.4,1); ebBT:SetHeight(1); ebBT:SetPoint("TOPLEFT",eb,"TOPLEFT"); ebBT:SetPoint("TOPRIGHT",eb,"TOPRIGHT")
+	local ebBB = eb:CreateTexture(nil,"BORDER"); ebBB:SetTexture(0.4,0.4,0.4,1); ebBB:SetHeight(1); ebBB:SetPoint("BOTTOMLEFT",eb,"BOTTOMLEFT"); ebBB:SetPoint("BOTTOMRIGHT",eb,"BOTTOMRIGHT")
+	local ebBL = eb:CreateTexture(nil,"BORDER"); ebBL:SetTexture(0.4,0.4,0.4,1); ebBL:SetWidth(1); ebBL:SetPoint("TOPLEFT",eb,"TOPLEFT"); ebBL:SetPoint("BOTTOMLEFT",eb,"BOTTOMLEFT")
+	local ebBR = eb:CreateTexture(nil,"BORDER"); ebBR:SetTexture(0.4,0.4,0.4,1); ebBR:SetWidth(1); ebBR:SetPoint("TOPRIGHT",eb,"TOPRIGHT"); ebBR:SetPoint("BOTTOMRIGHT",eb,"BOTTOMRIGHT")
 
-	-- [ADDED] Silver label
+	-- Silver label + editbox (optional, 0-99), to the right of the gold editbox
 	local silverLabel = f:CreateFontString("PhantomGamble_SilverLabel","OVERLAY","GameFontNormalSmall")
 	silverLabel:SetPoint("LEFT", eb, "RIGHT", 8, 0)
 	silverLabel:SetText("|cffC0C0C0Silver:|r")
 	silverLabel:SetJustifyH("LEFT")
 
-	-- [ADDED] Silver EditBox (optional, 0-99)
 	local seb = CreateFrame("EditBox","PhantomGamble_SilverEditBox",f)
-	seb:SetWidth(50); seb:SetHeight(22)
+	seb:SetWidth(46); seb:SetHeight(22)
 	seb:SetPoint("LEFT", silverLabel, "RIGHT", 4, 0)
 	seb:SetPoint("TOP", eb, "TOP", 0, 0)
 	seb:SetFontObject(ChatFontNormal); seb:SetAutoFocus(false); seb:SetNumeric(true); seb:SetMaxLetters(2); seb:SetJustifyH("CENTER")
 	seb:SetScript("OnEscapePressed", function() this:ClearFocus() end)
 	seb:SetScript("OnEnterPressed", function() this:ClearFocus() end)
 	local sebbg = seb:CreateTexture(nil,"BACKGROUND"); sebbg:SetTexture(0.1,0.1,0.1,0.8); sebbg:SetAllPoints(seb)
-	local sebBorderT = seb:CreateTexture(nil,"BORDER"); sebBorderT:SetTexture(0.4,0.4,0.4,1); sebBorderT:SetHeight(1); sebBorderT:SetPoint("TOPLEFT",seb,"TOPLEFT"); sebBorderT:SetPoint("TOPRIGHT",seb,"TOPRIGHT")
-	local sebBorderB = seb:CreateTexture(nil,"BORDER"); sebBorderB:SetTexture(0.4,0.4,0.4,1); sebBorderB:SetHeight(1); sebBorderB:SetPoint("BOTTOMLEFT",seb,"BOTTOMLEFT"); sebBorderB:SetPoint("BOTTOMRIGHT",seb,"BOTTOMRIGHT")
-	local sebBorderL = seb:CreateTexture(nil,"BORDER"); sebBorderL:SetTexture(0.4,0.4,0.4,1); sebBorderL:SetWidth(1); sebBorderL:SetPoint("TOPLEFT",seb,"TOPLEFT"); sebBorderL:SetPoint("BOTTOMLEFT",seb,"BOTTOMLEFT")
-	local sebBorderR = seb:CreateTexture(nil,"BORDER"); sebBorderR:SetTexture(0.4,0.4,0.4,1); sebBorderR:SetWidth(1); sebBorderR:SetPoint("TOPRIGHT",seb,"TOPRIGHT"); sebBorderR:SetPoint("BOTTOMRIGHT",seb,"BOTTOMRIGHT")
+	local sebBT = seb:CreateTexture(nil,"BORDER"); sebBT:SetTexture(0.4,0.4,0.4,1); sebBT:SetHeight(1); sebBT:SetPoint("TOPLEFT",seb,"TOPLEFT"); sebBT:SetPoint("TOPRIGHT",seb,"TOPRIGHT")
+	local sebBB = seb:CreateTexture(nil,"BORDER"); sebBB:SetTexture(0.4,0.4,0.4,1); sebBB:SetHeight(1); sebBB:SetPoint("BOTTOMLEFT",seb,"BOTTOMLEFT"); sebBB:SetPoint("BOTTOMRIGHT",seb,"BOTTOMRIGHT")
+	local sebBL = seb:CreateTexture(nil,"BORDER"); sebBL:SetTexture(0.4,0.4,0.4,1); sebBL:SetWidth(1); sebBL:SetPoint("TOPLEFT",seb,"TOPLEFT"); sebBL:SetPoint("BOTTOMLEFT",seb,"BOTTOMLEFT")
+	local sebBR = seb:CreateTexture(nil,"BORDER"); sebBR:SetTexture(0.4,0.4,0.4,1); sebBR:SetWidth(1); sebBR:SetPoint("TOPRIGHT",seb,"TOPRIGHT"); sebBR:SetPoint("BOTTOMRIGHT",seb,"BOTTOMRIGHT")
 
-	-- Buttons anchored below the input row
+	-- Button stack: all centered on the frame, stretch to fill with a fixed margin.
+	-- Using LEFT+RIGHT anchors so they scale when the window is resized.
+	local BH = 22  -- button height
+	local BG = 5   -- gap between buttons
+	local BM = 20  -- left/right margin inside frame
+
 	local ab = CreateFrame("Button","PhantomGamble_AcceptOnes_Button",f,"GameMenuButtonTemplate")
-	ab:SetWidth(150); ab:SetHeight(22)
-	ab:SetPoint("TOP", eb, "BOTTOM", 30, -8)
+	ab:SetHeight(BH)
+	ab:SetPoint("TOPLEFT",  f, "TOPLEFT",  BM, -88)
+	ab:SetPoint("TOPRIGHT", f, "TOPRIGHT", -BM, -88)
 	ab:SetText("Open Entry")
 	ab:SetScript("OnClick", function() PhantomGamble_OnClickACCEPTONES() end)
 
 	local lb = CreateFrame("Button","PhantomGamble_LASTCALL_Button",f,"GameMenuButtonTemplate")
-	lb:SetWidth(150); lb:SetHeight(22)
-	lb:SetPoint("TOP",ab,"BOTTOM",0,-4)
+	lb:SetHeight(BH)
+	lb:SetPoint("TOPLEFT",  f, "TOPLEFT",  BM, -88 - (BH+BG))
+	lb:SetPoint("TOPRIGHT", f, "TOPRIGHT", -BM, -88 - (BH+BG))
 	lb:SetText("Last Call")
 	lb:SetScript("OnClick", function() PhantomGamble_OnClickLASTCALL() end)
+	lb:Disable()
 
 	local rlb = CreateFrame("Button","PhantomGamble_ROLL_Button",f,"GameMenuButtonTemplate")
-	rlb:SetWidth(150); rlb:SetHeight(22)
-	rlb:SetPoint("TOP",lb,"BOTTOM",0,-4)
+	rlb:SetHeight(BH)
+	rlb:SetPoint("TOPLEFT",  f, "TOPLEFT",  BM, -88 - (BH+BG)*2)
+	rlb:SetPoint("TOPRIGHT", f, "TOPRIGHT", -BM, -88 - (BH+BG)*2)
 	rlb:SetText("Roll")
 	rlb:SetScript("OnClick", function() PhantomGamble_OnClickROLL() end)
+	rlb:Disable()
+
+	-- [ADDED] Who Needs Roll? — announces remaining players during roll phase
+	local wnb = CreateFrame("Button","PhantomGamble_WHONEEDS_Button",f,"GameMenuButtonTemplate")
+	wnb:SetHeight(BH)
+	wnb:SetPoint("TOPLEFT",  f, "TOPLEFT",  BM, -88 - (BH+BG)*3)
+	wnb:SetPoint("TOPRIGHT", f, "TOPRIGHT", -BM, -88 - (BH+BG)*3)
+	wnb:SetText("Who Needs Roll?")
+	wnb:SetScript("OnClick", function() PhantomGamble_OnClickWHONEEDS() end)
+	wnb:Disable()
 
 	local cnb = CreateFrame("Button","PhantomGamble_Cancel_Button",f,"GameMenuButtonTemplate")
-	cnb:SetWidth(150); cnb:SetHeight(22)
-	cnb:SetPoint("TOP",rlb,"BOTTOM",0,-4)
+	cnb:SetHeight(BH)
+	cnb:SetPoint("TOPLEFT",  f, "TOPLEFT",  BM, -88 - (BH+BG)*4)
+	cnb:SetPoint("TOPRIGHT", f, "TOPRIGHT", -BM, -88 - (BH+BG)*4)
 	cnb:SetText("Cancel")
 	cnb:SetScript("OnClick", function() PhantomGamble_OnClickCANCEL() end)
 	cnb:Disable()
@@ -1362,6 +1386,7 @@ function PhantomGamble_OnClickACCEPTONES()
 	PhantomGamble_ROLL_Button:Disable()
 	PhantomGamble_LASTCALL_Button:Disable()
 	PhantomGamble_Cancel_Button:Enable()
+	if PhantomGamble_WHONEEDS_Button then PhantomGamble_WHONEEDS_Button:Disable() end
 	AcceptOnes = "true"
 
 	-- Store the silver component of the bet; the gold sets the roll max
@@ -1390,6 +1415,8 @@ function PhantomGamble_OnClickROLL()
 		AcceptRolls = "true"
 		ChatMsg("Roll now! Type /random 1-" .. theMax)
 		PhantomGamble_List()
+		if PhantomGamble_WHONEEDS_Button then PhantomGamble_WHONEEDS_Button:Enable() end
+		PhantomGamble_ROLL_Button:Disable()
 	elseif AcceptOnes == "true" then
 		ChatMsg("Not enough Players!")
 	end
@@ -1401,6 +1428,7 @@ function PhantomGamble_OnClickCANCEL()
 	PhantomGamble_AcceptOnes_Button:SetText("Open Entry"); PhantomGamble_AcceptOnes_Button:Enable()
 	PhantomGamble_ROLL_Button:Disable(); PhantomGamble_LASTCALL_Button:Disable()
 	PhantomGamble_Cancel_Button:Disable(); PhantomGamble_CHAT_Button:Enable()
+	if PhantomGamble_WHONEEDS_Button then PhantomGamble_WHONEEDS_Button:Disable() end
 	Print("","","Gambling cancelled.")
 end
 
@@ -1416,6 +1444,20 @@ function PhantomGamble_OnClickWHISPERS()
 end
 
 -- [MODIFIED] Uses FormatMoney for silver-aware display
+-- [ADDED] Announces which players still need to roll (only active during roll phase)
+function PhantomGamble_OnClickWHONEEDS()
+	if AcceptRolls ~= "true" then return end
+	if not PhantomGamble.strings or table.getn(PhantomGamble.strings) == 0 then
+		ChatMsg("Everyone has rolled!")
+	else
+		local list = ""
+		for i, v in ipairs(PhantomGamble.strings) do
+			list = list .. (list ~= "" and ", " or "") .. v
+		end
+		ChatMsg("Still needs to roll: " .. list)
+	end
+end
+
 function PhantomGamble_OnClickSTATS(full)
 	if not PhantomGamble["stats"] or not next(PhantomGamble["stats"]) then DEFAULT_CHAT_FRAME:AddMessage("No stats yet!"); return end
 	DEFAULT_CHAT_FRAME:AddMessage("--- PhantomGamble Stats ---")
@@ -1500,6 +1542,7 @@ function PhantomGamble_Report()
 	PhantomGamble_AcceptOnes_Button:SetText("Open Entry"); PhantomGamble_AcceptOnes_Button:Enable()
 	PhantomGamble_ROLL_Button:Disable(); PhantomGamble_LASTCALL_Button:Disable()
 	PhantomGamble_Cancel_Button:Disable(); PhantomGamble_CHAT_Button:Enable()
+	if PhantomGamble_WHONEEDS_Button then PhantomGamble_WHONEEDS_Button:Disable() end
 end
 
 -- [MODIFIED] Also resets betSilver and the highnames tie-tracker
