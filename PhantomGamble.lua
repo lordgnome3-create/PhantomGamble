@@ -585,8 +585,6 @@ local function Print(pre, red, text)
 	DEFAULT_CHAT_FRAME:AddMessage(pre .. "|cff00ff00" .. red .. "|r: " .. text)
 end
 
--- [ADDED] Format a silver-unit amount into "Xg Ys" display string.
--- All monetary amounts are stored internally as silver (1 gold = 100 silver).
 local function FormatMoney(silverAmt)
 	if not silverAmt then silverAmt = 0 end
 	silverAmt = math.floor(silverAmt)
@@ -615,7 +613,6 @@ local function UpdateSortedStats()
 	statsNeedUpdate = false
 end
 
--- [MODIFIED] Uses FormatMoney for silver-aware display
 local function ReportStats(count, fromBottom)
 	if not PhantomGamble or not PhantomGamble["stats"] or not next(PhantomGamble["stats"]) then
 		Print("", "", "No stats to report!"); return
@@ -650,7 +647,6 @@ local function ReportStats(count, fromBottom)
 	end
 end
 
--- [MODIFIED] Uses FormatMoney for silver-aware display
 local function RefreshStatsDisplay()
 	if not PhantomGamble_StatsFrame or not PhantomGamble_StatsFrame:IsVisible() then return end
 	if not PhantomGamble_StatsScrollChild then return end
@@ -708,7 +704,6 @@ local function GetDebtKey(debtor, creditor)
 	else return creditor..":"..debtor end
 end
 
--- [NOTE] Amounts are now tracked in silver (1 gold = 100 silver)
 local function AddDebt(debtor, creditor, amount)
 	if not PhantomGamble["debts"] then PhantomGamble["debts"] = {} end
 	debtor = string.upper(string.sub(debtor,1,1))..string.sub(debtor,2)
@@ -722,7 +717,6 @@ local function AddDebt(debtor, creditor, amount)
 	debtsNeedUpdate = true
 end
 
--- [MODIFIED] paidAmount is in gold (user-facing); converted to silver internally
 local function PayDebt(payer, receiver, amountSilver)
 	if not PhantomGamble["debts"] then return false end
 	payer = string.upper(string.sub(payer,1,1))..string.sub(payer,2)
@@ -754,7 +748,6 @@ local function UpdateSortedDebts()
 	debtsNeedUpdate = false
 end
 
--- [MODIFIED] Uses FormatMoney for silver-aware display
 local function RefreshDebtsDisplay()
 	if not PhantomGamble_DebtsFrame or not PhantomGamble_DebtsFrame:IsVisible() then return end
 	if not PhantomGamble_DebtsScrollChild then return end
@@ -784,7 +777,6 @@ local function RefreshDebtsDisplay()
 	end
 end
 
--- [MODIFIED] Uses FormatMoney for silver-aware display
 local function ReportDebts()
 	if not PhantomGamble or not PhantomGamble["debts"] or not next(PhantomGamble["debts"]) then Print("","","No outstanding debts!"); return end
 	if debtsNeedUpdate then UpdateSortedDebts() end
@@ -1037,7 +1029,6 @@ end
 -- ============================================
 local function ShowMode(mode)
 	currentMode = mode
-	-- [MODIFIED] Added PhantomGamble_GoldLabel, PhantomGamble_SilverLabel, PhantomGamble_SilverEditBox
 	local regEls = {
 		"PhantomGamble_RegularTitle",
 		"PhantomGamble_GoldLabel",
@@ -1082,11 +1073,9 @@ local function CreateMainFrame()
 		elseif side=="LEFT" then b:SetPoint("TOPLEFT",f,"TOPLEFT",0,0); b:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",0,0)
 		else b:SetPoint("TOPRIGHT",f,"TOPRIGHT",0,0); b:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",0,0) end
 	end
-	-- Title bar
 	local tb = f:CreateTexture(nil,"ARTWORK"); tb:SetTexture(0.2,0.2,0.4,1); tb:SetHeight(24); tb:SetPoint("TOPLEFT",f,"TOPLEFT",2,-2); tb:SetPoint("TOPRIGHT",f,"TOPRIGHT",-2,-2)
 	local title = f:CreateFontString(nil,"OVERLAY","GameFontNormal"); title:SetPoint("TOPLEFT",f,"TOPLEFT",52,-8); title:SetText("|cffFFD700PhantomGamble|r")
 
-	-- Warning button
 	local wb = CreateFrame("Button","PhantomGamble_WarningButton",f); wb:SetWidth(60); wb:SetHeight(16); wb:SetPoint("LEFT",title,"RIGHT",8,0)
 	local wbt = wb:CreateFontString(nil,"OVERLAY","GameFontNormalSmall"); wbt:SetPoint("LEFT",wb,"LEFT",0,0); wbt:SetText("|cffff0000[Warning]|r")
 	wb:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
@@ -1097,7 +1086,6 @@ local function CreateMainFrame()
 	f:SetScript("OnMouseDown", function() if arg1=="LeftButton" then this:StartMoving() end end)
 	f:SetScript("OnMouseUp", function() this:StopMovingOrSizing() end)
 
-	-- Stats button
 	local sb = CreateFrame("Button","PhantomGamble_StatsButton",f); sb:SetWidth(20); sb:SetHeight(20); sb:SetPoint("TOPLEFT",f,"TOPLEFT",5,-5)
 	local sbbg = sb:CreateTexture(nil,"BACKGROUND"); sbbg:SetTexture(0.3,0.3,0.5,1); sbbg:SetAllPoints(sb)
 	local sbt = sb:CreateFontString(nil,"OVERLAY","GameFontNormalSmall"); sbt:SetPoint("CENTER",sb,"CENTER",0,0); sbt:SetText("|cffFFD700S|r")
@@ -1106,7 +1094,6 @@ local function CreateMainFrame()
 	sb:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_RIGHT"); GameTooltip:SetText("Gambling Stats"); GameTooltip:Show() end)
 	sb:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-	-- Debts button
 	local db = CreateFrame("Button","PhantomGamble_DebtsButton",f); db:SetWidth(20); db:SetHeight(20); db:SetPoint("LEFT",sb,"RIGHT",3,0)
 	local dbbg = db:CreateTexture(nil,"BACKGROUND"); dbbg:SetTexture(0.5,0.3,0.3,1); dbbg:SetAllPoints(db)
 	local dbt = db:CreateFontString(nil,"OVERLAY","GameFontNormalSmall"); dbt:SetPoint("CENTER",db,"CENTER",0,0); dbt:SetText("|cffFF6600D|r")
@@ -1115,10 +1102,8 @@ local function CreateMainFrame()
 	db:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_RIGHT"); GameTooltip:SetText("Outstanding Debts"); GameTooltip:Show() end)
 	db:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-	-- Close button
 	local xb = CreateFrame("Button","PhantomGamble_CloseButton",f,"UIPanelCloseButton"); xb:SetPoint("TOPRIGHT",f,"TOPRIGHT",-2,-2); xb:SetScript("OnClick", function() PhantomGamble_SlashCmd("hide") end)
 
-	-- Mode selector dropdown button
 	local mb = CreateFrame("Button","PhantomGamble_ModeBtn",f); mb:SetWidth(90); mb:SetHeight(18); mb:SetPoint("RIGHT",xb,"LEFT",-4,0)
 	local mbbg = mb:CreateTexture(nil,"BACKGROUND"); mbbg:SetTexture(0.15,0.15,0.15,0.9); mbbg:SetAllPoints(mb)
 	local mbBorderT = mb:CreateTexture(nil,"BORDER"); mbBorderT:SetTexture(0.5,0.5,0.5,1); mbBorderT:SetHeight(1); mbBorderT:SetPoint("TOPLEFT",mb,"TOPLEFT",0,0); mbBorderT:SetPoint("TOPRIGHT",mb,"TOPRIGHT",0,0)
@@ -1129,7 +1114,6 @@ local function CreateMainFrame()
 	local mba = mb:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall"); mba:SetPoint("RIGHT",mb,"RIGHT",-3,0); mba:SetText("v")
 	mb:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
 
-	-- Mode dropdown
 	local modeDD = CreateFrame("Frame","PhantomGamble_ModeDropdown",f); modeDD:SetWidth(90); modeDD:SetHeight(38); modeDD:SetPoint("TOP",mb,"BOTTOM",0,0); modeDD:SetFrameStrata("TOOLTIP"); modeDD:Hide()
 	local modeDDBg = modeDD:CreateTexture(nil,"BACKGROUND"); modeDDBg:SetTexture(0,0,0,0.95); modeDDBg:SetAllPoints(modeDD)
 	local modeDDBorderT = modeDD:CreateTexture(nil,"BORDER"); modeDDBorderT:SetTexture(0.5,0.5,0.5,1); modeDDBorderT:SetHeight(1); modeDDBorderT:SetPoint("TOPLEFT",modeDD,"TOPLEFT",-1,0); modeDDBorderT:SetPoint("TOPRIGHT",modeDD,"TOPRIGHT",1,0)
@@ -1153,13 +1137,9 @@ local function CreateMainFrame()
 	-- ==========================================
 	-- PANEL 1: Regular Gambling
 	-- ==========================================
-	-- Title: centered at top of content area
 	local rt = f:CreateFontString("PhantomGamble_RegularTitle","OVERLAY","GameFontNormalSmall")
 	rt:SetPoint("TOP",f,"TOP",0,cTop)
 	rt:SetText("|cff00ff00Regular Gamble|r")
-
-	-- Input row: Gold label + editbox + Silver label + editbox, centered as a unit.
-	-- Row total width ≈ 34+4+70+8+38+4+46 = 204px; anchor start at CENTER-102.
 
 	local goldLabel = f:CreateFontString("PhantomGamble_GoldLabel","OVERLAY","GameFontNormalSmall")
 	goldLabel:SetPoint("TOP", rt, "BOTTOM", 0, -10)
@@ -1167,7 +1147,6 @@ local function CreateMainFrame()
 	goldLabel:SetText("|cffFFD700Gold:|r")
 	goldLabel:SetJustifyH("LEFT")
 
-	-- Gold EditBox (width 70, centered to the right of the gold label)
 	local eb = CreateFrame("EditBox","PhantomGamble_EditBox",f)
 	eb:SetWidth(70); eb:SetHeight(22)
 	eb:SetPoint("LEFT", goldLabel, "RIGHT", 4, 0)
@@ -1180,7 +1159,6 @@ local function CreateMainFrame()
 	local ebBL = eb:CreateTexture(nil,"BORDER"); ebBL:SetTexture(0.4,0.4,0.4,1); ebBL:SetWidth(1); ebBL:SetPoint("TOPLEFT",eb,"TOPLEFT"); ebBL:SetPoint("BOTTOMLEFT",eb,"BOTTOMLEFT")
 	local ebBR = eb:CreateTexture(nil,"BORDER"); ebBR:SetTexture(0.4,0.4,0.4,1); ebBR:SetWidth(1); ebBR:SetPoint("TOPRIGHT",eb,"TOPRIGHT"); ebBR:SetPoint("BOTTOMRIGHT",eb,"BOTTOMRIGHT")
 
-	-- Silver label + editbox (optional, 0-99), to the right of the gold editbox
 	local silverLabel = f:CreateFontString("PhantomGamble_SilverLabel","OVERLAY","GameFontNormalSmall")
 	silverLabel:SetPoint("LEFT", eb, "RIGHT", 8, 0)
 	silverLabel:SetText("|cffC0C0C0Silver:|r")
@@ -1199,11 +1177,9 @@ local function CreateMainFrame()
 	local sebBL = seb:CreateTexture(nil,"BORDER"); sebBL:SetTexture(0.4,0.4,0.4,1); sebBL:SetWidth(1); sebBL:SetPoint("TOPLEFT",seb,"TOPLEFT"); sebBL:SetPoint("BOTTOMLEFT",seb,"BOTTOMLEFT")
 	local sebBR = seb:CreateTexture(nil,"BORDER"); sebBR:SetTexture(0.4,0.4,0.4,1); sebBR:SetWidth(1); sebBR:SetPoint("TOPRIGHT",seb,"TOPRIGHT"); sebBR:SetPoint("BOTTOMRIGHT",seb,"BOTTOMRIGHT")
 
-	-- Button stack: all centered on the frame, stretch to fill with a fixed margin.
-	-- Using LEFT+RIGHT anchors so they scale when the window is resized.
-	local BH = 22  -- button height
-	local BG = 5   -- gap between buttons
-	local BM = 20  -- left/right margin inside frame
+	local BH = 22
+	local BG = 5
+	local BM = 20
 
 	local ab = CreateFrame("Button","PhantomGamble_AcceptOnes_Button",f,"GameMenuButtonTemplate")
 	ab:SetHeight(BH)
@@ -1228,7 +1204,6 @@ local function CreateMainFrame()
 	rlb:SetScript("OnClick", function() PhantomGamble_OnClickROLL() end)
 	rlb:Disable()
 
-	-- [ADDED] Who Needs Roll? — announces remaining players during roll phase
 	local wnb = CreateFrame("Button","PhantomGamble_WHONEEDS_Button",f,"GameMenuButtonTemplate")
 	wnb:SetHeight(BH)
 	wnb:SetPoint("TOPLEFT",  f, "TOPLEFT",  BM, -88 - (BH+BG)*3)
@@ -1250,7 +1225,6 @@ local function CreateMainFrame()
 	-- ==========================================
 	local trt = f:CreateFontString("PhantomGamble_TRTitle","OVERLAY","GameFontNormalSmall"); trt:SetPoint("TOP",f,"TOP",0,cTop); trt:SetText("|cffffff00WoW Trivia|r")
 
-	-- Expansion dropdown
 	local tel = f:CreateFontString("PhantomGamble_TR_ExpLabel","OVERLAY","GameFontNormalSmall"); tel:SetPoint("TOPLEFT",trt,"BOTTOM",-80,-8); tel:SetWidth(50); tel:SetJustifyH("RIGHT"); tel:SetText("|cffffffffExpac:|r")
 	local tes = CreateFrame("Button","PhantomGamble_TR_ExpSelect",f); tes:SetWidth(110); tes:SetHeight(18); tes:SetPoint("LEFT",tel,"RIGHT",5,0)
 	local tesbg = tes:CreateTexture(nil,"BACKGROUND"); tesbg:SetTexture(0.1,0.1,0.1,0.8); tesbg:SetAllPoints(tes)
@@ -1268,7 +1242,6 @@ local function CreateMainFrame()
 	end
 	tes:SetScript("OnClick", function() if tedd:IsVisible() then tedd:Hide() else tedd:Show(); if PhantomGamble_TR_RoundsDropdown then PhantomGamble_TR_RoundsDropdown:Hide() end end end)
 
-	-- Rounds dropdown
 	local trl = f:CreateFontString("PhantomGamble_TR_RoundsLabel","OVERLAY","GameFontNormalSmall"); trl:SetPoint("TOPLEFT",tel,"BOTTOMLEFT",0,-8); trl:SetWidth(50); trl:SetJustifyH("RIGHT"); trl:SetText("|cffffffffRounds:|r")
 	local trs = CreateFrame("Button","PhantomGamble_TR_RoundsSelect",f); trs:SetWidth(50); trs:SetHeight(18); trs:SetPoint("LEFT",trl,"RIGHT",5,0)
 	local trsbg = trs:CreateTexture(nil,"BACKGROUND"); trsbg:SetTexture(0.1,0.1,0.1,0.8); trsbg:SetAllPoints(trs)
@@ -1287,7 +1260,6 @@ local function CreateMainFrame()
 	end
 	trs:SetScript("OnClick", function() if trdd:IsVisible() then trdd:Hide() else trdd:Show(); tedd:Hide() end end)
 
-	-- Trivia buttons
 	local tsb = CreateFrame("Button","PhantomGamble_TR_StartBtn",f,"GameMenuButtonTemplate"); tsb:SetWidth(140); tsb:SetHeight(22); tsb:SetPoint("TOP",trt,"BOTTOM",0,-60); tsb:SetText("Start Trivia"); tsb:SetScript("OnClick", function() PhantomGamble_TR_Start() end)
 	local tab = CreateFrame("Button","PhantomGamble_TR_AskBtn",f,"GameMenuButtonTemplate"); tab:SetWidth(140); tab:SetHeight(22); tab:SetPoint("TOP",tsb,"BOTTOM",0,-4); tab:SetText("Ask Question"); tab:SetScript("OnClick", function() PhantomGamble_TR_AskQuestion() end); tab:Disable()
 	local tcb = CreateFrame("Button","PhantomGamble_TR_CancelBtn",f,"GameMenuButtonTemplate"); tcb:SetWidth(140); tcb:SetHeight(22); tcb:SetPoint("TOP",tab,"BOTTOM",0,-4); tcb:SetText("Cancel"); tcb:SetScript("OnClick", function() PhantomGamble_TR_Cancel() end); tcb:Disable()
@@ -1299,7 +1271,6 @@ local function CreateMainFrame()
 	local chatBtn = CreateFrame("Button","PhantomGamble_CHAT_Button",f,"GameMenuButtonTemplate"); chatBtn:SetWidth(70); chatBtn:SetHeight(20); chatBtn:SetPoint("BOTTOMLEFT",f,"BOTTOMLEFT",15,30); chatBtn:SetText("RAID"); chatBtn:SetScript("OnClick", function() PhantomGamble_OnClickCHAT() end)
 	local whisperBtn = CreateFrame("Button","PhantomGamble_WHISPER_Button",f,"GameMenuButtonTemplate"); whisperBtn:SetWidth(90); whisperBtn:SetHeight(20); whisperBtn:SetPoint("LEFT",chatBtn,"RIGHT",5,0); whisperBtn:SetText("(No Whispers)"); whisperBtn:SetScript("OnClick", function() PhantomGamble_OnClickWHISPERS() end)
 
-	-- Resize grip
 	local rz = CreateFrame("Button","PhantomGamble_ResizeButton",f); rz:SetWidth(16); rz:SetHeight(16); rz:SetPoint("BOTTOMRIGHT",f,"BOTTOMRIGHT",-2,2); rz:EnableMouse(true)
 	local rzt = rz:CreateTexture(nil,"OVERLAY"); rzt:SetTexture("Interface/ChatFrame/UI-ChatIM-SizeGrabber-Up"); rzt:SetAllPoints(rz)
 	rz:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
@@ -1307,7 +1278,6 @@ local function CreateMainFrame()
 	rz:SetScript("OnEnter", function() GameTooltip:SetOwner(this,"ANCHOR_TOPLEFT"); GameTooltip:SetText("Drag to resize"); GameTooltip:Show() end)
 	rz:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-	-- Default: show Regular Gamble
 	ShowMode(1)
 	return f
 end
@@ -1354,8 +1324,9 @@ end
 -- REGULAR GAMBLING FUNCTIONS
 -- ============================================
 
--- [MODIFIED] Reads both gold and silver fields. Silver is optional (leave blank or 0).
--- Validates silver is 0-99. Stores amounts internally in silver (1g = 100s).
+-- [MODIFIED] Silver is always folded into the roll max.
+-- e.g. 15 gold 00 silver → theMax = 1500 → players type /roll 1-1500
+-- The rolled number is read directly as a silver-unit value, so high - low = owed silver.
 function PhantomGamble_OnClickACCEPTONES()
 	if PhantomGamble_AcceptOnes_Button:GetText() == "New Game" then
 		PhantomGamble_Reset()
@@ -1372,7 +1343,6 @@ function PhantomGamble_OnClickACCEPTONES()
 	local goldVal = tonumber(goldText) or 0
 	local silverVal = tonumber(silverText) or 0
 
-	-- Validate: must have a positive total, and silver must be 0-99
 	if goldVal <= 0 and silverVal <= 0 then
 		DEFAULT_CHAT_FRAME:AddMessage("|cffff0000Please enter a valid gold amount (silver is optional).|r")
 		return
@@ -1389,16 +1359,16 @@ function PhantomGamble_OnClickACCEPTONES()
 	if PhantomGamble_WHONEEDS_Button then PhantomGamble_WHONEEDS_Button:Disable() end
 	AcceptOnes = "true"
 
-	-- Store the silver component of the bet; the gold sets the roll max
-	betSilver = silverVal
-	theMax = goldVal
+	-- Combine gold and silver into a single 4-digit roll max.
+	-- e.g. 15 gold 00 silver = theMax 1500; 15g 50s = theMax 1550.
+	-- The rolled number is then read directly as a silver-unit value.
+	theMax = goldVal * 100 + silverVal
 	low = theMax + 1
 
-	-- Save last-used values for next session
 	PhantomGamble["lastroll"] = goldText
 	PhantomGamble["lastsilver"] = silverText
 
-	local moneyStr = FormatMoney(goldVal * 100 + silverVal)
+	local moneyStr = FormatMoney(theMax)
 	ChatMsg("Welcome to PhantomGamble! Roll Amount: " .. moneyStr .. ". Type 1 to Join or -1 to withdraw.")
 	PhantomGamble_AcceptOnes_Button:SetText("New Game")
 end
@@ -1443,8 +1413,6 @@ function PhantomGamble_OnClickWHISPERS()
 	PhantomGamble_WHISPER_Button:SetText(whispermethod and "(Whispers)" or "(No Whispers)")
 end
 
--- [MODIFIED] Uses FormatMoney for silver-aware display
--- [ADDED] Announces which players still need to roll (only active during roll phase)
 function PhantomGamble_OnClickWHONEEDS()
 	if AcceptRolls ~= "true" then return end
 	if not PhantomGamble.strings or table.getn(PhantomGamble.strings) == 0 then
@@ -1466,15 +1434,12 @@ function PhantomGamble_OnClickSTATS(full)
 	end
 end
 
--- [MODIFIED] Handles multiple tied winners with split payouts.
--- Also accounts for silver bets in debt calculation.
--- All monetary amounts tracked in silver (1g = 100s).
+-- [MODIFIED] Rolls are now in silver units (theMax = goldVal*100 + silverVal),
+-- so high - low is the owed amount in silver directly. No separate betSilver needed.
 function PhantomGamble_Report()
-	-- Total debt in silver = roll-range difference in gold + flat silver component
-	local rollDiffGold = high - low
-	local totalSilverOwed = (rollDiffGold * 100) + betSilver
+	-- Total debt in silver = difference in rolled values (rolls are now in silver units)
+	local totalSilverOwed = high - low
 
-	-- Capitalize names
 	local function Cap(s)
 		if not s or s == "" then return s end
 		return string.upper(string.sub(s,1,1)) .. string.sub(s,2)
@@ -1483,15 +1448,12 @@ function PhantomGamble_Report()
 	lowname = Cap(lowname)
 
 	if high == low then
-		-- Everyone tied at the same roll — no payout
 		ChatMsg("It was a complete tie! No payouts!")
 
 	elseif table.getn(highnames) > 1 then
-		-- [ADDED] Multiple players tied for the highest roll — split the pot
 		local numWinners = table.getn(highnames)
 		local splitSilver = math.floor(totalSilverOwed / numWinners)
 
-		-- Build winner list string
 		local winnerList = ""
 		for i, wn in ipairs(highnames) do
 			highnames[i] = Cap(wn)
@@ -1507,7 +1469,6 @@ function PhantomGamble_Report()
 			FormatMoney(totalSilverOwed), numWinners, FormatMoney(splitSilver)
 		))
 
-		-- Record debt and stats for each winner
 		for _, wn in ipairs(highnames) do
 			PhantomGamble["stats"][wn] = (PhantomGamble["stats"][wn] or 0) + splitSilver
 			PhantomGamble["stats"][lowname] = (PhantomGamble["stats"][lowname] or 0) - splitSilver
@@ -1520,7 +1481,6 @@ function PhantomGamble_Report()
 		if PhantomGamble_DebtsFrame and PhantomGamble_DebtsFrame:IsVisible() then RefreshDebtsDisplay() end
 
 	else
-		-- Normal single-winner case
 		highname = Cap(highname)
 
 		if totalSilverOwed > 0 then
@@ -1545,7 +1505,6 @@ function PhantomGamble_Report()
 	if PhantomGamble_WHONEEDS_Button then PhantomGamble_WHONEEDS_Button:Disable() end
 end
 
--- [MODIFIED] Also resets betSilver and the highnames tie-tracker
 function PhantomGamble_Reset()
 	totalrolls, low, high, lowname, highname = 0, 0, 0, "", ""
 	highnames = {}
@@ -1587,15 +1546,11 @@ function PhantomGamble_List()
 	ChatMsg("Players: "..list)
 end
 
--- [MODIFIED] Now tracks the full highnames table for tie detection.
--- When a new high is rolled, highnames is reset to just that player.
--- When a player ties the current high, they are added to highnames.
 function PhantomGamble_ParseRoll(msg)
 	local _,_,name,roll,minroll,maxroll = string.find(msg, "(.+) rolls (%d+) %((%d+)%-(%d+)%)")
 	if not name then return end
 	roll=tonumber(roll); minroll=tonumber(minroll); maxroll=tonumber(maxroll)
 
-	-- Check the player is in our list first (don't remove yet)
 	local found, idx = false, nil
 	if PhantomGamble.strings then
 		for i,v in ipairs(PhantomGamble.strings) do
@@ -1604,22 +1559,19 @@ function PhantomGamble_ParseRoll(msg)
 	end
 	if not found then return end
 
-	-- Validate roll range; if wrong, notify and leave them in the list to reroll
 	if maxroll~=theMax or minroll~=1 then
 		ChatMsg(name.." rolled wrong range! Please roll /random 1-"..theMax)
 		return
 	end
 
-	-- Valid roll: remove from waiting list and record result
 	table.remove(PhantomGamble.strings, idx)
 
-	-- [MODIFIED] Track all tied top-rollers in highnames
 	if roll > high then
 		high = roll
 		highname = name
-		highnames = { name }          -- new leader, reset tie list
+		highnames = { name }
 	elseif roll == high then
-		table.insert(highnames, name) -- tied with current leader
+		table.insert(highnames, name)
 	end
 
 	if roll < low then
@@ -1637,12 +1589,11 @@ end
 -- CHAT MESSAGE PARSING
 -- ============================================
 function PhantomGamble_ParseChatMsg(msg, sender)
-	-- [MODIFIED] !paid command: amount is in gold (user-facing), converted to silver internally
 	local _,_,paidTo,paidAmount = string.find(msg, "^!paid%s+(%S+)%s+(%d+)")
 	if paidTo and paidAmount then
 		paidAmount = tonumber(paidAmount)
 		if paidAmount and paidAmount > 0 then
-			local paidSilver = paidAmount * 100  -- convert gold to silver
+			local paidSilver = paidAmount * 100
 			local success, errMsg = PayDebt(sender, paidTo, paidSilver)
 			if success then
 				ChatMsg(sender.." paid "..paidTo.." "..paidAmount.." gold. Debt updated!")
@@ -1655,10 +1606,8 @@ function PhantomGamble_ParseChatMsg(msg, sender)
 		return
 	end
 
-	-- Trivia answers
 	if TR_Active and TR_WaitingForAnswers then PhantomGamble_TR_ParseChat(msg, sender) end
 
-	-- Regular gambling
 	if msg=="1" and AcceptOnes=="true" then
 		if PhantomGamble_ChkBan(sender)==0 then
 			PhantomGamble_Add(sender)
@@ -1712,17 +1661,14 @@ function PhantomGamble_OnEvent()
 			PhantomGamble = { active=1, chat=1, channel="gambling", whispers=false, strings={}, lowtie={}, hightie={}, bans={}, minimap=true, lastroll=100, lastsilver=0, stats={}, joinstats={}, debts={} }
 		end
 		if not PhantomGamble["debts"] then PhantomGamble["debts"] = {} end
-		-- [ADDED] Default lastsilver if missing from older saved data
 		if not PhantomGamble["lastsilver"] then PhantomGamble["lastsilver"] = 0 end
 
 		PhantomGamble_EditBox:SetText(tostring(PhantomGamble["lastroll"] or 100))
-		-- [ADDED] Restore silver field
 		if PhantomGamble_SilverEditBox then
 			local sv = PhantomGamble["lastsilver"]
 			PhantomGamble_SilverEditBox:SetText(sv ~= 0 and tostring(sv) or "")
 		end
 
-		-- Restore trivia settings
 		TR_TotalRounds = PhantomGamble["lastTRRounds"] or 5
 		TR_SelectedExpansion = PhantomGamble["lastTRExpansion"] or "All"
 		if PhantomGamble_TR_RoundsSelectText then PhantomGamble_TR_RoundsSelectText:SetText(tostring(TR_TotalRounds)) end
